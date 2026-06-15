@@ -1,36 +1,44 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# CLOUT (clout.kytepush.com)
 
-## Getting Started
+A digital collectible card game built on a live cultural-relevance index. Each card is a
+*living typographic data object* for a public figure — name + a live Cultural Momentum Score
+sourced from public headlines + rank + a 7-day sparkline. **No likeness. Closed-loop coins
+(never cashable). Card-for-card trading. A daily Debut drop.**
 
-First, run the development server:
+Shipped on the KytePush platform: **Next.js (App Router) on Vercel + shared Supabase Postgres.**
+
+## Architecture
+
+- **Frontend** — a self-contained mobile-first PWA (`public/app.js`, `app/globals.css`) rendered
+  into the shell in `app/page.tsx`. Installable (manifest + service worker).
+- **API** — one catch-all route handler (`app/api/[...path]/route.ts`) that calls Supabase
+  RPC functions via the `service_role` key (server-side only). Card art is rendered to SVG by
+  `lib/renderer.mjs` (zero photo/face assets — likeness is structurally impossible).
+- **Database** — Supabase Postgres. All objects namespaced `clout_*` to share the project
+  safely. Schema + business logic live in `db/` (`01_schema.sql`, `02_functions.sql`,
+  `03_render.sql`) and are applied via the Supabase Management API.
+- **Index engine** — `lib/engine.mjs` + `lib/roster.mjs` compute the Cultural Momentum Score
+  (scores derive only from external media, never user activity).
+
+## The six hard constraints (baked in)
+
+No likeness · coins/cards never cashable · score is sourced sentiment with linked headlines
+(never a factual caption) · the index is informational while card value is supply/demand · only
+collectible language · public figures only with a removal path (`clout_admin_remove`).
+
+## Develop / re-seed
 
 ```bash
+# secrets live in env (Vercel) / .env.local (gitignored) — never committed
+node db/apply.mjs db/01_schema.sql
+node db/apply.mjs db/02_functions.sql
+node db/apply.mjs db/03_render.sql
+node db/seed.mjs
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Env: `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+(app) and `SUPABASE_ACCESS_TOKEN`, `SUPABASE_PROJECT_REF` (migrations/seed only).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Demo accounts: `you`, `ava_collects`, `maxrarity` (password `demo1234`, or passwordless demo
+login). Or sign up for the free 3-card welcome pack.
