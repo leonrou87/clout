@@ -33,6 +33,8 @@ export async function GET(req: NextRequest, ctx: Ctx) {
     if (a === 'debut' && b === 'today') return ok(await rpc('clout_debut_today'));
     if (a === 'debut' && b === 'schedule') return ok(await rpc('clout_debut_schedule'));
     if (a === 'leaderboards' && b) return ok(await rpc('clout_leaderboard', { p_kind: b }));
+    if (a === 'trending' && !b) return ok(await rpc('clout_trending'));
+    if (a === 'cards' && b && c === 'provenance') return ok(await rpc('clout_card_provenance', { p_card: b }));
     if (a === 'chat' && b) return ok(await rpc('clout_chat', { p_room: decodeURIComponent(b), p_user: await userId(req) }));
 
     if (a === 'render' && b === 'card' && c) {
@@ -58,6 +60,10 @@ export async function GET(req: NextRequest, ctx: Ctx) {
         message: `Collect living cards of the people moving culture. Join CLOUT with my link and we both get bonus coins:` });
     }
     if (a === 'transfers' && b === 'incoming') { if (!uid) return need401(); return ok(await rpc('clout_transfers_incoming', { p_user: uid })); }
+    if (a === 'me' && b === 'portfolio') { if (!uid) return need401(); return ok(await rpc('clout_portfolio', { p_user: uid })); }
+    if (a === 'me' && b === 'referrals') { if (!uid) return need401(); return ok(await rpc('clout_referrals', { p_user: uid })); }
+    if (a === 'me' && b === 'anchors') { if (!uid) return need401(); return ok(await rpc('clout_anchors', { p_user: uid })); }
+    if (a === 'me' && b === 'sets') { if (!uid) return need401(); return ok(await rpc('clout_sets', { p_user: uid })); }
     return new Response('not found', { status: 404 });
   } catch (e) { return fail(e); }
 }
@@ -85,6 +91,10 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     if (a === 'transfers' && b && c === 'accept') return ok({ ok: true, ...(await rpc('clout_accept_transfer', { p_transfer: b, p_accepter: uid }) as object) });
     if (a === 'transfers' && !b) return ok({ ok: true, ...(await rpc('clout_propose_transfer', { p_from: uid, p_to_handle: body.to_handle, p_out: body.card_ids_out ?? [], p_in: body.card_ids_in ?? [] }) as object) });
     if (a === 'chat' && b) { await rpc('clout_chat_post', { p_user: uid, p_room: decodeURIComponent(b), p_body: body.body }); return ok({ ok: true }); }
+    if (a === 'me' && b === 'checkin') return ok({ ok: true, ...(await rpc('clout_daily_checkin', { p_user: uid }) as object) });
+    if (a === 'cards' && b && c === 'lock') return ok({ ok: true, ...(await rpc('clout_toggle_lock', { p_user: uid, p_card: b }) as object) });
+    if (a === 'clash' && !b) return ok({ ok: true, ...(await rpc('clout_clash', { p_user: uid, p_cards: body.cards ?? [] }) as object) });
+    if (a === 'figures' && b && c === 'hype') return ok({ ok: true, ...(await rpc('clout_hype', { p_figure: b, p_user: uid }) as object) });
     if (a === 'admin' && b === 'figures' && c) { await rpc('clout_admin_remove', { p_figure: c }); return ok({ ok: true }); }
     return new Response('not found', { status: 404 });
   } catch (e) { return fail(e); }

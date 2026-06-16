@@ -15,11 +15,11 @@ const $ = (s, r = document) => r.querySelector(s);
 const el = (html) => { const t = document.createElement('template'); t.innerHTML = html.trim(); return t.content.firstElementChild; };
 
 function setSession(token, handle) {
-  state.token = token; state.user = handle;
+  state.token = token; state.user = handle; state._checkedIn = false;
   LS.setItem('clout_token', token); LS.setItem('clout_handle', handle);
 }
 function clearSession() {
-  state.token = null; state.user = null;
+  state.token = null; state.user = null; state._checkedIn = false;
   LS.removeItem('clout_token'); LS.removeItem('clout_handle');
 }
 
@@ -80,6 +80,9 @@ routes.debut = async () => {
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:2px"><span class="pill gold">🔥 Debut Day</span><span class="muted" style="font-size:12px">next drop in <b id="cd">${fmtCountdown(d.next_debut_in_seconds)}</b></span></div>
     <h1 class="h1">${f.display_name}</h1>
     <p class="sub">Today's debut — chosen because they're spiking in the index (momentum <b class="cms">${f.cms}</b>, rank #${f.rank}). The 100 Founders mint here first: lowest serials + a permanent Founding Collector badge.</p>
+    ${d.recent_claims > 0
+      ? `<div class="pill gold" style="margin-bottom:10px">🔥 FRENZY · ${d.recent_claims} claimed in the last 10 min · ${d.crowd} collectors</div>`
+      : `<div class="muted" style="font-size:12px;margin-bottom:10px">👥 ${d.crowd} collectors here</div>`}
     <div class="card-wrap" style="max-width:230px;margin:0 auto 14px"><img class="card-svg" src="/api/render/preview/${f.figure_id}/founders.svg"/></div>
     <div class="panel">
       <div style="display:flex;justify-content:space-between;font-size:14px"><b>Founders claimed</b><span>${d.founders.claimed} / ${d.founders.total}</span></div>
@@ -156,13 +159,12 @@ routes.index = async () => {
 
 routes.discover = async () => {
   const by = state._rankBy || 'popularity';
-  const { cards } = await api('/cards/top?by=' + by);
   const v = el(`<div>
     <h1 class="h1">Cards</h1>
     <p class="sub">The card ranker — by collector demand, not news. Tap a card to view its room, value guide, and buy a copy from the reserve.</p>
     <div class="seg" id="seg">
       <button data-by="popularity">Popular</button>
-      <button data-by="trending">Trending</button>
+      <button data-by="trending">🔥 Hyped</button>
       <button data-by="value">Top Value</button>
     </div>
     <div id="list"></div></div>`);
@@ -171,13 +173,25 @@ routes.discover = async () => {
     b.onclick = () => { state._rankBy = b.dataset.by; render(); };
   });
   const list = $('#list', v);
-  cards.forEach((c, i) => list.appendChild(el(`
-    <div class="row" data-go="figure/${c.figure_id}">
-      <span class="rank">${i + 1}</span>
-      <div><div style="font-weight:700">${c.display_name} <span class="muted" style="font-weight:600">${c.rarity} ${c.tier}</span></div>
-        <div class="muted" style="font-size:12px">${c.holders} holders · ${c.minted}/${fmt(c.print_run)} minted</div></div>
-      <div class="ri"><div class="val">◈ ${fmt(c.value)}</div><div class="muted" style="font-size:11px">${by === 'value' ? 'guide' : 'pop ' + c.popularity}</div></div>
-    </div>`)));
+  if (by === 'trending') {
+    const { cards } = await api('/trending');
+    cards.forEach((c, i) => list.appendChild(el(`
+      <div class="row" data-go="figure/${c.figure_id}">
+        <span class="rank">${i + 1}</span>
+        <div><div style="font-weight:700">${c.display_name}</div>
+          <div class="muted" style="font-size:12px"><span class="cat-dot" style="background:${catColor(c.category)}"></span> ${catLabel(c.category)} · ${c.buys} buys</div></div>
+        <div class="ri"><div class="val">🔥 ${c.hype}</div><div class="muted" style="font-size:11px">cms ${c.cms}</div></div>
+      </div>`)));
+  } else {
+    const { cards } = await api('/cards/top?by=' + by);
+    cards.forEach((c, i) => list.appendChild(el(`
+      <div class="row" data-go="figure/${c.figure_id}">
+        <span class="rank">${i + 1}</span>
+        <div><div style="font-weight:700">${c.display_name} <span class="muted" style="font-weight:600">${c.rarity} ${c.tier}</span></div>
+          <div class="muted" style="font-size:12px">${c.holders} holders · ${c.minted}/${fmt(c.print_run)} minted</div></div>
+        <div class="ri"><div class="val">◈ ${fmt(c.value)}</div><div class="muted" style="font-size:11px">${by === 'value' ? 'guide' : 'pop ' + c.popularity}</div></div>
+      </div>`)));
+  }
   return v;
 };
 
@@ -195,11 +209,15 @@ routes.figure = async (id) => {
       ${f.driving.map((h) => `<a class="headline" href="${h.url}" target="_blank" rel="noopener">${h.title}<span class="src"> — ${h.source} · ${new Date(h.published_at).toLocaleDateString()}</span></a>`).join('') || '<p class="muted">No recent public coverage.</p>'}
       <p class="disclaimer">${f.disclaimer}</p>
     </div>
+    <div class="btnrow"><button class="btn ghost" id="hype">🔥 Hype this card</button><button class="btn ghost" data-go="room/${f.figure_id}">💬 Chat room</button></div>
     <h2 class="h2">Value guide & reserve</h2>
     <p class="sub" style="margin-bottom:10px">Informational estimate (like a price guide), not a sale price. Buy a new copy from the publisher reserve with credits; trade copies with friends.</p>
     <div id="tiers"></div>
-    <button class="btn ghost" data-go="room/${f.figure_id}" style="margin-top:6px">💬 Open ${f.display_name} chat room</button>
   </div>`);
+  $('#hype', v).onclick = async () => {
+    try { const r = await api(`/figures/${f.figure_id}/hype`, { method: 'POST' }); toast(r.counted ? `🔥 Hyped! ${f.display_name} hype: ${r.hype}` : 'You already hyped today', r.counted ? 'win' : ''); }
+    catch (e) { toast(e.message, 'err'); }
+  };
   const tiers = $('#tiers', v);
   f.card_types.forEach((ct) => {
     const soldOut = ct.reserve <= 0;
@@ -211,6 +229,8 @@ routes.figure = async (id) => {
       <div class="valbar"></div>
       <div class="muted" style="font-size:12px;display:flex;justify-content:space-between">
         <span>guide ${fmt(ct.value_lo)}–${fmt(ct.value_hi)}</span><span>${ct.holders} holders · pop ${ct.popularity}</span></div>
+      ${ct.print_run && (ct.print_run - ct.minted) <= ct.print_run * 0.1 && ct.tier !== 'genesis'
+        ? `<div style="color:var(--gold);font-size:12px;margin-top:6px">🔥 only ${fmt(ct.print_run - ct.minted)} left forever</div>` : ''}
       ${ct.tier === 'genesis'
         ? `<div class="muted" style="font-size:12px;margin-top:8px">The 1/1 chase card — not sold from reserve.</div>`
         : `<button class="btn ${soldOut ? 'ghost' : 'gold'} sm" style="margin-top:10px;width:100%" ${soldOut ? 'disabled' : ''} data-buy="${ct.card_type_id}" data-name="${f.display_name} ${ct.tier}">${soldOut ? 'Reserve empty' : 'Buy a copy · ◈ ' + fmt(ct.value)}</button>`}
@@ -220,28 +240,92 @@ routes.figure = async (id) => {
 };
 
 routes.collection = async () => {
-  const c = await api('/me/collection');
+  const [c, anchors] = await Promise.all([api('/me/collection'), api('/me/anchors')]);
+  const missing = anchors.filter((a) => !a.owned);
   const v = el(`<div>
     <h1 class="h1">Your Collection</h1>
-    <p class="sub">Status score <b class="lead">${fmt(c.value)}</b> — rarity + low serials + momentum (in-app status, not cash).
-      <button class="btn ghost sm" id="yield" style="margin-top:8px">Claim hold-yield</button></p>
-    ${c.cards.length ? '<div class="cardgrid" id="grid"></div>' : '<div class="empty">No cards yet.<br>Open the Cards tab to buy from the reserve, or invite a friend.</div>'}
+    <p class="sub">Status score <b class="lead">${fmt(c.value)}</b> — rarity + low serials + momentum (in-app status, not cash).</p>
+    <div class="btnrow">
+      <button class="btn gold sm" data-go="clash">⚔️ Clout Clash</button>
+      <button class="btn ghost sm" id="yield">Claim hold-yield</button>
+    </div>
+    ${missing.length ? `<h2 class="h2">Anchors to collect 🔒</h2>
+      <p class="sub" style="margin-bottom:8px">The biggest names are never given away — earn coins and buy them.</p>
+      <div class="anchorstrip" id="anchors"></div>` : ''}
+    <h2 class="h2">Your cards</h2>
+    ${c.cards.length ? '<div class="cardgrid" id="grid"></div>' : '<div class="empty">No cards yet. Buy from the Cards tab, or invite a friend.</div>'}
   </div>`);
+  if (missing.length) {
+    const a = $('#anchors', v);
+    missing.forEach((m) => a.appendChild(el(`<div class="anchor-locked" data-go="figure/${m.figure_id}">
+      <div class="lockface">🔒</div><div class="aname">${m.display_name}</div><div class="muted" style="font-size:11px">${m.cms} · buy</div></div>`)));
+  }
   if (c.cards.length) {
     const grid = $('#grid', v);
     c.cards.forEach((card) => {
-      const w = el(`<div>
-        <div class="card-wrap" data-card='${JSON.stringify({ id: card.card_id, name: card.display_name, serial: card.serial_number, fig: card.figure_id, tier: card.tier }).replace(/'/g, '&#39;')}'>
+      const badges = [card.crown ? '👑' : '', card.locked ? '🔒' : '', card.founding ? '🏅' : ''].filter(Boolean).join(' ');
+      const m = card.momentum_since;
+      const mo = m > 0 ? `<span style="color:var(--good)">▲${m}</span>` : (m < 0 ? `<span style="color:var(--bad)">▼${Math.abs(m)}</span>` : '');
+      grid.appendChild(el(`<div>
+        <div class="card-wrap" data-card='${JSON.stringify({ id: card.card_id, name: card.display_name, serial: card.serial_number, fig: card.figure_id, tier: card.tier, rarity: card.rarity, locked: card.locked }).replace(/'/g, '&#39;')}'>
           <img class="card-svg" src="/api/render/card/${card.card_id}.svg" loading="lazy"/>
-          ${card.founding ? '<div class="card-badge">🏅 Founding</div>' : ''}
+          ${badges ? `<div class="card-badge">${badges}</div>` : ''}
         </div>
-        <div class="card-meta"><span>${card.rarity} ${card.tier}</span><span class="val">◈ ${fmt(card.value)}</span></div>
-      </div>`);
-      grid.appendChild(w);
+        <div class="card-meta"><span>${card.rarity} #${card.serial_number}</span><span class="val">◈ ${fmt(card.value)} ${mo}</span></div>
+        <div class="muted" style="font-size:11px">${fmt(card.left_forever)} left forever · held ${card.held_days}d</div>
+      </div>`));
     });
   }
   return v;
 };
+
+routes.clash = async () => {
+  const c = await api('/me/collection');
+  state._clashPick = (state._clashPick || []).filter((id) => c.cards.some((k) => k.card_id === id));
+  const v = el(`<div>
+    <div class="muted" data-back style="margin-bottom:6px">‹ Back</div>
+    <h1 class="h1">⚔️ Clout Clash</h1>
+    <p class="sub">Pick 3 of your cards and face the house. Each round flips a stat — momentum, rarity power, 7-day movement. Win 2 of 3 for coins. No stakes, nothing to lose.</p>
+    <div id="picks" class="muted" style="margin-bottom:8px">Selected 0/3</div>
+    ${c.cards.length >= 3
+      ? '<div class="cardgrid" id="grid"></div><button class="btn gold" id="play" style="margin-top:14px" disabled>Pick 3 cards</button>'
+      : '<div class="empty">You need at least 3 cards to play. Buy a few from the Cards tab!</div>'}
+  </div>`);
+  if (c.cards.length >= 3) {
+    const grid = $('#grid', v);
+    c.cards.forEach((card) => grid.appendChild(el(`<div class="card-wrap clashpick ${state._clashPick.includes(card.card_id) ? 'sel' : ''}" data-pick="${card.card_id}">
+      <img class="card-svg" src="/api/render/card/${card.card_id}.svg" loading="lazy"/>
+      <div class="card-meta"><span>${card.rarity} #${card.serial_number}</span></div></div>`)));
+    const sync = () => { const p = $('#play', v); $('#picks', v).textContent = `Selected ${state._clashPick.length}/3`; p.disabled = state._clashPick.length !== 3; p.textContent = state._clashPick.length === 3 ? 'Clash!' : 'Pick 3 cards'; };
+    sync();
+    grid.querySelectorAll('[data-pick]').forEach((eln) => eln.onclick = () => {
+      const id = eln.dataset.pick, i = state._clashPick.indexOf(id);
+      if (i >= 0) state._clashPick.splice(i, 1); else if (state._clashPick.length < 3) state._clashPick.push(id); else return;
+      eln.classList.toggle('sel'); sync();
+    });
+    $('#play', v).onclick = async () => {
+      if (state._clashPick.length !== 3) return;
+      try { const r = await api('/clash', { method: 'POST', body: JSON.stringify({ cards: state._clashPick }) }); state._clashPick = []; showClash(r); }
+      catch (e) { toast(e.message === 'PICK_3_CARDS' ? 'Pick exactly 3 cards' : e.message, 'err'); }
+    };
+  }
+  return v;
+};
+function showClash(r) {
+  const rows = r.rounds.map((rd) => `<div class="row"><div style="flex:1;min-width:0"><b>${rd.stat}</b>
+    <div class="muted" style="font-size:12px">you ${rd.you.name} (${fmt(rd.you.val)}) vs ${rd.house.name} (${fmt(rd.house.val)})</div></div>
+    <div class="ri">${rd.win ? '✅' : '❌'}</div></div>`).join('');
+  const bg = sheet(`<h3>${r.you_won ? '🏆 You win!' : '😤 Close one'}</h3>
+    <p class="sub">${r.your_rounds}/3 rounds${r.reward ? ` · +◈${r.reward}` : ''}</p>${rows}
+    <button class="btn gold" id="again" style="margin-top:12px">Play again</button>
+    <button class="btn ghost" id="shareClash" style="margin-top:8px">📤 Share result</button>`);
+  $('#again', bg).onclick = () => { bg.remove(); render(); refreshBalance(); };
+  $('#shareClash', bg).onclick = async () => {
+    const text = `I went ${r.your_rounds}/3 in Clout Clash ${r.you_won ? '🏆' : ''} — collect living cards on CLOUT`;
+    if (navigator.share) { try { await navigator.share({ title: 'CLOUT Clash', text, url: location.origin }); return; } catch {} }
+    try { await navigator.clipboard.writeText(location.origin); toast('Copied!', 'win'); } catch {}
+  };
+}
 
 routes.chat = async () => {
   // rooms = global + figure rooms where you hold a card
@@ -285,16 +369,28 @@ routes.room = async (id) => {
 };
 
 routes.profile = async () => {
-  const me = await api('/me');
-  const inv = await api('/me/invite');
-  const incoming = await api('/transfers/incoming');
+  const [me, inv, incoming, port, ref, sets] = await Promise.all([
+    api('/me'), api('/me/invite'), api('/transfers/incoming'), api('/me/portfolio'), api('/me/referrals'), api('/me/sets')]);
   const v = el(`<div>
     <h1 class="h1">@${me.handle}</h1>
-    <p class="sub">Balance <b class="val">◈ ${fmt(me.balance)}</b></p>
+    <p class="sub">Your wallet & collection at a glance.</p>
+    <div class="panel">
+      <div class="kv"><span class="muted">Coins</span><span class="val">◈ ${fmt(port.balance)}</span></div>
+      <div class="kv"><span class="muted">Collection value</span><b class="lead">${fmt(port.value)}</b></div>
+      <div class="kv"><span class="muted">Net-worth rank</span><span>#${port.networth_rank} of ${port.collectors}</span></div>
+      <div class="kv"><span class="muted">You can afford</span><span>${Math.floor(port.balance / 1500)} Founders · ${Math.floor(port.balance / 400)} Standard</span></div>
+    </div>
+    ${port.movers && port.movers.length ? '<div class="h2">Your movers</div><div id="movers"></div>' : ''}
     ${incoming.length ? `<div class="panel" style="border-color:var(--gold)"><b>📥 ${incoming.length} incoming trade${incoming.length > 1 ? 's' : ''}</b><div id="incoming" style="margin-top:8px"></div></div>` : ''}
     <button class="btn gold" id="buyCoins">Buy Clout Coins (sandbox)</button>
     <div class="btnrow"><button class="btn ghost" id="invite">📣 Invite friends · get the app</button></div>
     <div class="btnrow"><button class="btn ghost" id="install">⬇︎ Install CLOUT</button></div>
+    <h2 class="h2">Invite & sets</h2>
+    <div class="panel">
+      <div class="kv"><span class="muted">Friends invited</span><span>${ref.invited}</span></div>
+      <div class="kv"><span class="muted">Referral bonus earned</span><span class="val">◈ ${fmt(ref.bonus_earned)}</span></div>
+    </div>
+    <div id="sets"></div>
     <h2 class="h2">Account</h2>
     <div class="panel">
       <div class="kv"><span class="muted">Coins are</span><span>in-app only · never cashable</span></div>
@@ -304,6 +400,20 @@ routes.profile = async () => {
     <div class="btnrow"><button class="btn ghost" id="switch">Switch demo account</button><button class="btn ghost" id="logout">Log out</button></div>
     <p class="disclaimer" style="margin-top:18px">CLOUT is a digital collectible card game. The Value Guide is an informational estimate, not a price we pay or that you can cash out. Scores are CLOUT's read on public momentum, sourced from public headlines — not factual claims.</p>
   </div>`);
+  // movers
+  const moversEl = $('#movers', v);
+  if (moversEl) (port.movers || []).forEach((m) => {
+    const up = m.delta > 0, flat = m.delta === 0;
+    moversEl.appendChild(el(`<div class="row"><div><b>${m.display_name}</b> <span class="muted" style="font-size:12px">${m.tier}</span></div>
+      <div class="ri"><span class="val">◈ ${fmt(m.value)}</span> <span style="color:${flat ? 'var(--muted)' : up ? 'var(--good)' : 'var(--bad)'};font-size:12px">${flat ? '—' : (up ? '▲' : '▼') + fmt(Math.abs(m.delta))}</span></div></div>`));
+  });
+  // set completion bars
+  const setsEl = $('#sets', v);
+  if (setsEl) sets.forEach((s) => {
+    const pct = Math.round((s.owned / s.total) * 100);
+    setsEl.appendChild(el(`<div style="margin-bottom:8px"><div style="display:flex;justify-content:space-between;font-size:13px"><span>${catLabel(s.category)} set ${s.owned === s.total ? '✅' : ''}</span><span class="muted">${s.owned}/${s.total}</span></div>
+      <div class="valbar" style="background:linear-gradient(90deg,var(--accent) ${pct}%, #2a2d3a ${pct}%)"></div></div>`));
+  });
   // incoming trades
   const incEl = $('#incoming', v);
   if (incEl) for (const t of incoming) {
@@ -388,7 +498,13 @@ function cardActions(card) {
     <p class="sub">${card.rarity || ''} ${card.tier}. Trade it card-for-card, gift it, or share it. CLOUT never attaches money to a trade.</p>
     <button class="btn" id="trade">🔄 Propose a trade</button>
     <div class="btnrow"><button class="btn ghost" id="gift">🎁 Gift to a friend</button><button class="btn ghost" id="share">📤 Share</button></div>
+    <div class="btnrow"><button class="btn ghost" id="lock">${card.locked ? '🔓 Unlock' : '🔒 Vault lock'}</button><button class="btn ghost" id="prov">📜 History</button></div>
     <button class="btn ghost" id="room" style="margin-top:10px">💬 Go to ${card.name} room</button>`);
+  $('#lock', bg).onclick = async () => {
+    try { const r = await api(`/cards/${card.id}/lock`, { method: 'POST' }); bg.remove(); toast(r.locked ? 'Card vaulted 🔒 — safe from trades' : 'Card unlocked', 'win'); render(); }
+    catch (e) { toast(e.message, 'err'); }
+  };
+  $('#prov', bg).onclick = () => { bg.remove(); showProvenance(card); };
   $('#gift', bg).onclick = async () => {
     const to = prompt(`Gift ${card.name} #${card.serial} to which collector? (handle)\nA gift is free — CLOUT has no payment concept.`); if (!to) return;
     try { await api('/transfers', { method: 'POST', body: JSON.stringify({ to_handle: to.trim().toLowerCase(), card_ids_out: [card.id] }) }); bg.remove(); toast(`Gift sent to @${to.trim()} — they accept it in their profile.`, 'win'); }
@@ -414,6 +530,20 @@ async function proposeTrade(card) {
   } catch (e) { toast(e.message, 'err'); }
 }
 
+async function showProvenance(card) {
+  try {
+    const p = await api('/cards/' + card.id + '/provenance');
+    const ev = (p.events || []).map((e) => `<div class="row" style="background:var(--panel2)"><div style="font-size:13px"><b>${e.kind === 'minted' ? '✨ Minted' : '🔄 Traded'}</b></div><div class="ri muted" style="font-size:11px">${new Date(e.at).toLocaleDateString()}</div></div>`).join('');
+    sheet(`<h3>${card.name} #${card.serial}</h3><p class="sub">Held ${p.held_days} day${p.held_days === 1 ? '' : 's'} · provably unique, yours forever.</p>${ev || '<p class="muted">No history yet.</p>'}`);
+  } catch (e) { toast(e.message, 'err'); }
+}
+
+async function maybeCheckin() {
+  if (!state.token || state._checkedIn) return;
+  state._checkedIn = true;
+  try { const r = await api('/me/checkin', { method: 'POST' }); if (r.credited > 0) { toast(`🔥 Day ${r.streak} streak · +◈${r.credited}`, 'win'); refreshBalance(); } } catch {}
+}
+
 /* ============================== PWA INSTALL ============================== */
 let deferredPrompt = null;
 window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); deferredPrompt = e; });
@@ -435,6 +565,7 @@ async function render() {
   try { view.replaceChildren(await (routes[route] || routes.index)(arg)); }
   catch (e) { view.replaceChildren(el(`<p class="empty">Couldn't load: ${e.message}</p>`)); }
   refreshBalance();
+  maybeCheckin();
 }
 
 document.addEventListener('click', (e) => {

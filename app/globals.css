@@ -175,3 +175,15 @@ main {
 @keyframes up { from { transform: translateY(40px); opacity: .6; } to { transform: none; opacity: 1; } }
 .sheet h3 { margin: 2px 0 14px; font-size: 18px; }
 .empty { text-align: center; color: var(--muted); padding: 40px 16px; }
+
+/* v2: anchors-to-collect strip */
+.anchorstrip { display: flex; gap: 10px; overflow-x: auto; padding: 2px 0 8px; -webkit-overflow-scrolling: touch; }
+.anchor-locked { flex: 0 0 auto; width: 96px; text-align: center; background: var(--panel); border: 1px dashed var(--line); border-radius: 14px; padding: 14px 8px; }
+.anchor-locked:active { background: var(--panel2); }
+.anchor-locked .lockface { font-size: 26px; filter: grayscale(1); opacity: .8; }
+.anchor-locked .aname { font-weight: 700; font-size: 13px; margin-top: 4px; }
+
+/* v2: clash card selection */
+.clashpick { border-radius: 16px; transition: transform .1s ease; }
+.clashpick.sel { outline: 3px solid var(--gold); border-radius: 16px; transform: scale(.96); }
+.clashpick.sel::after { content: '✓'; position: absolute; top: 8px; right: 8px; background: var(--gold); color: #1a1205; font-weight: 800; border-radius: 999px; width: 24px; height: 24px; display: grid; place-items: center; }
