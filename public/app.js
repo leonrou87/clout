@@ -129,9 +129,7 @@ async function enableNotify() {
 
 routes.index = async () => {
   const { figures, as_of } = await api('/index/clout500');
-  const top = await Promise.all(figures.slice(0, 40).map(async (f) => {
-    const d = await api('/figures/' + f.figure_id); return { ...f, sparkline: d.sparkline };
-  }));
+  const top = figures.slice(0, 40); // sparkline is included in the single call now
   let banner = '';
   try {
     const d = await api('/debut/today');
@@ -397,6 +395,7 @@ routes.profile = async () => {
       <div class="kv"><span class="muted">Trades are</span><span>card-for-card · no money</span></div>
       <div class="kv"><span class="muted">Your invite</span><span style="font-size:12px;max-width:55%;overflow:hidden;text-overflow:ellipsis">${inv.invite_url}</span></div>
     </div>
+    <button class="btn ghost" data-go="about" style="margin-top:6px">ℹ️ About, terms & figure removal</button>
     <div class="btnrow"><button class="btn ghost" id="switch">Switch demo account</button><button class="btn ghost" id="logout">Log out</button></div>
     <p class="disclaimer" style="margin-top:18px">CLOUT is a digital collectible card game. The Value Guide is an informational estimate, not a price we pay or that you can cash out. Scores are CLOUT's read on public momentum, sourced from public headlines — not factual claims.</p>
   </div>`);
@@ -438,6 +437,27 @@ routes.profile = async () => {
   return v;
 };
 
+/* ============================== ABOUT / TERMS ============================== */
+function aboutHtml() {
+  return `
+  <h2 class="h2" style="margin-top:0">What CLOUT is</h2>
+  <p class="sub">A digital collectible card game. Each card is a public figure rendered as a typographic data object — a name, a live Cultural Momentum Score sourced from public headlines, a rank, and a serial number that's yours forever. No photos, no likeness.</p>
+  <h2 class="h2">The rules that protect everyone</h2>
+  <div class="panel">
+    <div class="kv"><span class="muted">Coins & cards</span><span>in-app only · never cashable</span></div>
+    <div class="kv"><span class="muted">Trades</span><span>card-for-card · no money</span></div>
+    <div class="kv"><span class="muted">Scores</span><span>sourced public momentum, not facts</span></div>
+    <div class="kv"><span class="muted">Card value</span><span>an informational guide, not advice</span></div>
+    <div class="kv"><span class="muted">Roster</span><span>public figures only</span></div>
+    <div class="kv"><span class="muted">Age</span><span>13+</span></div>
+  </div>
+  <p class="disclaimer">Cultural Momentum Scores are CLOUT's read on public momentum, sourced from public headlines — informational signals, not factual claims and not financial advice. The Value Guide is an estimate, never a price we pay or that you can cash out.</p>
+  <h2 class="h2">Report or remove a figure</h2>
+  <p class="sub">Public figures may request removal. Email <a class="lead" href="mailto:hello@kytepush.com?subject=CLOUT%20figure%20removal">hello@kytepush.com</a> and we'll act promptly.</p>
+  <p class="muted" style="font-size:12px">This is a plain-language summary. A full Terms of Service & Privacy Policy govern at public launch.</p>`;
+}
+routes.about = async () => el(`<div><div class="muted" data-back style="margin-bottom:6px">‹ Back</div><h1 class="h1">About CLOUT</h1>${aboutHtml()}</div>`);
+
 /* ============================== ONBOARDING / AUTH ============================== */
 function onboarding(mode = 'signup') {
   const v = el(`<div class="onboard">
@@ -448,6 +468,7 @@ function onboarding(mode = 'signup') {
     ${mode === 'signup' ? '<div class="pill gold free">🎁 Free pack of 3 cards on signup</div>' : '<div class="pill free">Welcome back</div>'}
     <input class="input" id="handle" placeholder="Handle" maxlength="20" autocomplete="username"/>
     <input class="input" id="password" type="password" placeholder="Password (6+ chars)" autocomplete="${mode === 'signup' ? 'new-password' : 'current-password'}"/>
+    ${mode === 'signup' ? `<label class="agegate"><input type="checkbox" id="age"/><span>I'm 13 or older and agree to the <a class="lead" id="terms">Terms</a>.</span></label>` : ''}
     <button class="btn gold" id="go">${mode === 'signup' ? 'Claim my free pack' : 'Log in'}</button>
     <p class="muted" style="font-size:13px;margin-top:14px">${mode === 'signup' ? 'Already have an account?' : 'New to CLOUT?'} <a class="lead" id="toggle">${mode === 'signup' ? 'Log in' : 'Sign up'}</a></p>
     <p class="muted" style="font-size:12px;margin-top:6px">Coins & cards are in-app only and never cashable. 13+.</p>
@@ -458,6 +479,7 @@ function onboarding(mode = 'signup') {
     const password = $('#password', v).value;
     if (handle.length < 2) return toast('Pick a handle (2+ chars)', 'err');
     if (password.length < 6) return toast('Password needs 6+ characters', 'err');
+    if (mode === 'signup' && !$('#age', v).checked) return toast('Please confirm you’re 13 or older', 'err');
     try {
       if (mode === 'signup') {
         const r = await api('/auth/signup', { method: 'POST', body: JSON.stringify({ handle, password, ref: state.ref }) });
@@ -474,6 +496,7 @@ function onboarding(mode = 'signup') {
   };
   $('#go', v).onclick = submit;
   $('#password', v).addEventListener('keydown', (e) => { if (e.key === 'Enter') submit(); });
+  const termsLink = $('#terms', v); if (termsLink) termsLink.onclick = () => sheet(`<h3>About CLOUT</h3>${aboutHtml()}`);
   $('#toggle', v).onclick = () => onboarding(mode === 'signup' ? 'login' : 'signup');
   $('#demo', v).onclick = async () => {
     const h = prompt('Demo account: you / ava_collects / maxrarity', 'you'); if (!h) return;

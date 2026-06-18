@@ -249,7 +249,8 @@ create or replace function clout_index_500() returns jsonb as $$
     'as_of',(select max(as_of) from clout_cms_snapshots),
     'count',(select count(*) from clout_figures where status='active'),
     'figures', coalesce((select jsonb_agg(to_jsonb(x) order by x.rank) from (
-       select f.figure_id, f.display_name, f.category, s.cms, s.rank, s.sentiment_avg, s.volume
+       select f.figure_id, f.display_name, f.category, s.cms, s.rank, s.sentiment_avg, s.volume,
+         coalesce((select jsonb_agg(cms order by as_of) from clout_cms_snapshots sp where sp.figure_id=f.figure_id),'[]') as sparkline
        from clout_figures f
        join lateral (select cms,rank,sentiment_avg,volume from clout_cms_snapshots s where s.figure_id=f.figure_id order by as_of desc limit 1) s on true
        where f.status='active'

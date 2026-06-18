@@ -187,3 +187,7 @@ main {
 .clashpick { border-radius: 16px; transition: transform .1s ease; }
 .clashpick.sel { outline: 3px solid var(--gold); border-radius: 16px; transform: scale(.96); }
 .clashpick.sel::after { content: '✓'; position: absolute; top: 8px; right: 8px; background: var(--gold); color: #1a1205; font-weight: 800; border-radius: 999px; width: 24px; height: 24px; display: grid; place-items: center; }
+
+/* launch: age gate checkbox */
+.agegate { display: flex; align-items: flex-start; gap: 10px; text-align: left; font-size: 13px; color: var(--muted); margin: 2px 4px 14px; line-height: 1.4; }
+.agegate input { width: 20px; height: 20px; accent-color: var(--accent); margin-top: 1px; flex: 0 0 auto; }
