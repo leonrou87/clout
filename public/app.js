@@ -208,6 +208,7 @@ routes.figure = async (id) => {
       <p class="disclaimer">${f.disclaimer}</p>
     </div>
     <div class="btnrow"><button class="btn ghost" id="hype">🔥 Hype this card</button><button class="btn ghost" data-go="room/${f.figure_id}">💬 Chat room</button></div>
+    <div class="btnrow"><button class="btn ghost" id="sharefig">📤 Share ${f.display_name}</button></div>
     <h2 class="h2">Value guide & reserve</h2>
     <p class="sub" style="margin-bottom:10px">Informational estimate (like a price guide), not a sale price. Buy a new copy from the publisher reserve with credits; trade copies with friends.</p>
     <div id="tiers"></div>
@@ -216,6 +217,7 @@ routes.figure = async (id) => {
     try { const r = await api(`/figures/${f.figure_id}/hype`, { method: 'POST' }); toast(r.counted ? `🔥 Hyped! ${f.display_name} hype: ${r.hype}` : 'You already hyped today', r.counted ? 'win' : ''); }
     catch (e) { toast(e.message, 'err'); }
   };
+  $('#sharefig', v).onclick = () => shareFigure(f.figure_id, `${f.display_name} — momentum ${f.cms} on CLOUT`);
   const tiers = $('#tiers', v);
   f.card_types.forEach((ct) => {
     const soldOut = ct.reserve <= 0;
@@ -534,11 +536,7 @@ function cardActions(card) {
     catch (e) { toast(e.message, 'err'); }
   };
   $('#trade', bg).onclick = () => { bg.remove(); proposeTrade(card); };
-  $('#share', bg).onclick = async () => {
-    const url = location.origin + '/api/render/card/' + card.id + '.svg';
-    if (navigator.share) { try { await navigator.share({ title: `My ${card.name} card`, text: `Check out my ${card.name} #${card.serial} on CLOUT`, url }); return; } catch {} }
-    try { await navigator.clipboard.writeText(url); toast('Card link copied!', 'win'); } catch {}
-  };
+  $('#share', bg).onclick = () => shareFigure(card.fig, `My ${card.name} #${card.serial}`);
   $('#room', bg).onclick = () => { bg.remove(); location.hash = 'room/' + card.fig; render(); };
 }
 
@@ -551,6 +549,12 @@ async function proposeTrade(card) {
     await api('/transfers', { method: 'POST', body: JSON.stringify({ to_handle: to.trim().toLowerCase(), card_ids_out: [card.id], card_ids_in: inId ? [inId] : [] }) });
     toast(`Trade proposed to @${to.trim()}. They confirm from their profile.`, 'win');
   } catch (e) { toast(e.message, 'err'); }
+}
+
+async function shareFigure(figureId, text) {
+  const url = `${location.origin}/f/${figureId}`; // rich crawlable page with its own preview image
+  if (navigator.share) { try { await navigator.share({ title: 'CLOUT', text, url }); return; } catch {} }
+  try { await navigator.clipboard.writeText(url); toast('Link copied — preview unfurls when shared!', 'win'); } catch { prompt('Share this link:', url); }
 }
 
 async function showProvenance(card) {
