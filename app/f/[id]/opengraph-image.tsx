@@ -21,7 +21,10 @@ export default async function OG({ params }: { params: Promise<{ id: string }> }
   return new ImageResponse(
     (
       <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', background: '#08090f', padding: 70, color: '#fff' }}>
-        <div style={{ display: 'flex', fontSize: 30, fontWeight: 800, letterSpacing: 6, color: accent }}>◈ CLOUT</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+          <div style={{ display: 'flex', width: 24, height: 24, background: accent, transform: 'rotate(45deg)' }} />
+          <div style={{ display: 'flex', fontSize: 30, fontWeight: 800, letterSpacing: 6, color: accent }}>CLOUT</div>
+        </div>
         <div style={{ display: 'flex', flexDirection: 'column' }}>
           <div style={{ display: 'flex', fontSize: 22, letterSpacing: 4, color: '#8a8aa0' }}>CULTURAL MOMENTUM · RANK #{rank}</div>
           <div style={{ display: 'flex', fontSize: 86, fontWeight: 800, marginTop: 8 }}>{name}</div>
