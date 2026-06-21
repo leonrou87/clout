@@ -7,7 +7,7 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
-const BATCH = 6; // GDELT allows ~1 req / 5s; 6 x ~5s stays safely under the 60s function cap
+const BATCH = 4; // GDELT ~1 req/5s + 7s fetch timeout — 4/run stays well under the 60s cap
 
 // Daily index refresh from REAL news (GDELT). Refreshes the stalest BATCH of figures with a
 // live news pulse, re-normalizes the whole roster (carrying forward the rest), recomputes
@@ -34,7 +34,7 @@ export async function GET(req: NextRequest) {
   for (let i = 0; i < toFetch.length; i++) {
     const p = await pulse(toFetch[i].display_name);
     if (!p.error && p.volume > 0) fresh[toFetch[i].figure_id] = p; // only accept real results
-    if (i < toFetch.length - 1) await sleep(5000);
+    if (i < toFetch.length - 1) await sleep(4500);
   }
 
   // raw for every figure: fresh pulse for fetched, carried-forward raw for the rest
