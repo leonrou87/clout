@@ -7,7 +7,7 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
-const BATCH = 8; // GDELT allows ~1 req / 5s; 8 x ~5.2s stays under maxDuration
+const BATCH = 6; // GDELT allows ~1 req / 5s; 6 x ~5s stays safely under the 60s function cap
 
 // Daily index refresh from REAL news (GDELT). Refreshes the stalest BATCH of figures with a
 // live news pulse, re-normalizes the whole roster (carrying forward the rest), recomputes
@@ -27,14 +27,14 @@ export async function GET(req: NextRequest) {
   // pick the BATCH figures whose latest snapshot is oldest (stalest first)
   const order = [...(figs || [])].sort((a, b) => (latest[a.figure_id]?.as_of || '').localeCompare(latest[b.figure_id]?.as_of || ''));
   const toFetch = order.filter((f) => latest[f.figure_id]?.as_of !== today).slice(0, BATCH);
-  const fetchIds = new Set(toFetch.map((f) => f.figure_id));
 
-  const fresh: Record<string, { volume: number; sentiment: number; articles: unknown[] }> = {};
+  // Fetch real news for the batch. No inline retry (would risk the 60s function cap) — a
+  // throttled figure simply carries forward and is retried on the next run.
+  const fresh: Record<string, { volume: number; sentiment: number; articles: unknown[]; error?: string }> = {};
   for (let i = 0; i < toFetch.length; i++) {
-    let p = await pulse(toFetch[i].display_name);
-    if (p.error) { await sleep(6000); p = await pulse(toFetch[i].display_name); }
-    fresh[toFetch[i].figure_id] = p;
-    if (i < toFetch.length - 1) await sleep(5200);
+    const p = await pulse(toFetch[i].display_name);
+    if (!p.error && p.volume > 0) fresh[toFetch[i].figure_id] = p; // only accept real results
+    if (i < toFetch.length - 1) await sleep(5000);
   }
 
   // raw for every figure: fresh pulse for fetched, carried-forward raw for the rest
@@ -42,7 +42,8 @@ export async function GET(req: NextRequest) {
   const prev: Record<string, number> = {};
   for (const f of figs || []) {
     prev[f.figure_id] = latest[f.figure_id]?.cms ?? null as unknown as number;
-    rawByFigure[f.figure_id] = fetchIds.has(f.figure_id) ? rawFromPulse(fresh[f.figure_id]) : (latest[f.figure_id]?.raw_signal ?? 0);
+    const p = fresh[f.figure_id];
+    rawByFigure[f.figure_id] = p ? rawFromPulse(p) : (latest[f.figure_id]?.raw_signal ?? 0);
   }
   const cmsToday = normalizeRelative(rawByFigure, WEIGHTS) as Record<string, number>;
   const display: Record<string, number> = {};
@@ -65,5 +66,7 @@ export async function GET(req: NextRequest) {
 
   const recomputed = await rpc('clout_recompute_all');
   const debut = await rpc('clout_roll_debut');
-  return Response.json({ ok: true, as_of: today, refreshed: toFetch.map((f) => f.display_name), figures: rows.length, recomputed, debut });
+  const refreshed = toFetch.filter((f) => fresh[f.figure_id]).map((f) => f.display_name);
+  const throttled = toFetch.filter((f) => !fresh[f.figure_id]).map((f) => f.display_name);
+  return Response.json({ ok: true, as_of: today, refreshed, throttled, figures: rows.length, recomputed, debut });
 }
