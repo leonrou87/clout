@@ -1,17 +1,15 @@
 import type { NextRequest } from 'next/server';
 import { supabaseAdmin, rpc } from '@/lib/supabase';
 import { normalizeRelative, ema, WEIGHTS } from '@/lib/engine.mjs';
-import { pulse, rawFromPulse, sleep } from '@/lib/gdelt.mjs';
+import { pulse, rawFromPulse, mapPool } from '@/lib/gdelt.mjs';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
-const BATCH = 4; // GDELT ~1 req/5s + 7s fetch timeout — 4/run stays well under the 60s cap
-
-// Daily index refresh from REAL news (GDELT). Refreshes the stalest BATCH of figures with a
-// live news pulse, re-normalizes the whole roster (carrying forward the rest), recomputes
-// value guides, and rolls the next Debut. Vercel Cron sends Authorization: Bearer $CRON_SECRET.
+// Daily index refresh from REAL news (Google News RSS). Pulls a fresh pulse for the whole
+// roster (concurrency-limited), re-normalizes momentum, recomputes value guides, and rolls
+// the next Debut. Vercel Cron sends Authorization: Bearer $CRON_SECRET.
 export async function GET(req: NextRequest) {
   const secret = process.env.CRON_SECRET;
   const auth = req.headers.get('authorization') || '';
@@ -20,28 +18,19 @@ export async function GET(req: NextRequest) {
   const { data: figs } = await supabaseAdmin.from('clout_figures').select('figure_id, display_name').eq('status', 'active');
   const { data: snaps } = await supabaseAdmin.from('clout_cms_snapshots')
     .select('figure_id, cms, raw_signal, sentiment_avg, volume, driving, as_of').order('as_of', { ascending: false });
-  const latest: Record<string, { cms: number; raw_signal: number; sentiment_avg: number; volume: number; driving: unknown; as_of: string }> = {};
+  const latest: Record<string, { cms: number; raw_signal: number; sentiment_avg: number; volume: number; driving: unknown }> = {};
   for (const s of snaps || []) if (!(s.figure_id in latest)) latest[s.figure_id] = s;
 
-  const today = new Date().toISOString().slice(0, 10);
-  // pick the BATCH figures whose latest snapshot is oldest (stalest first)
-  const order = [...(figs || [])].sort((a, b) => (latest[a.figure_id]?.as_of || '').localeCompare(latest[b.figure_id]?.as_of || ''));
-  const toFetch = order.filter((f) => latest[f.figure_id]?.as_of !== today).slice(0, BATCH);
+  // fetch every figure's news pulse, 5 at a time
+  const list = figs || [];
+  const pulses = await mapPool(list, 5, (f: { display_name: string }) => pulse(f.display_name)) as { volume: number; sentiment: number; articles: unknown[]; error?: string }[];
+  const fresh: Record<string, { volume: number; sentiment: number; articles: unknown[] }> = {};
+  list.forEach((f, i) => { const p = pulses[i]; if (p && !p.error && p.volume > 0) fresh[f.figure_id] = p; });
 
-  // Fetch real news for the batch. No inline retry (would risk the 60s function cap) — a
-  // throttled figure simply carries forward and is retried on the next run.
-  const fresh: Record<string, { volume: number; sentiment: number; articles: unknown[]; error?: string }> = {};
-  for (let i = 0; i < toFetch.length; i++) {
-    const p = await pulse(toFetch[i].display_name);
-    if (!p.error && p.volume > 0) fresh[toFetch[i].figure_id] = p; // only accept real results
-    if (i < toFetch.length - 1) await sleep(4500);
-  }
-
-  // raw for every figure: fresh pulse for fetched, carried-forward raw for the rest
   const rawByFigure: Record<string, number> = {};
   const prev: Record<string, number> = {};
-  for (const f of figs || []) {
-    prev[f.figure_id] = latest[f.figure_id]?.cms ?? null as unknown as number;
+  for (const f of list) {
+    prev[f.figure_id] = (latest[f.figure_id]?.cms ?? null) as number;
     const p = fresh[f.figure_id];
     rawByFigure[f.figure_id] = p ? rawFromPulse(p) : (latest[f.figure_id]?.raw_signal ?? 0);
   }
@@ -51,7 +40,8 @@ export async function GET(req: NextRequest) {
   const rank: Record<string, number> = {};
   Object.entries(display).sort((a, b) => b[1] - a[1]).forEach(([fid], i) => (rank[fid] = i + 1));
 
-  const rows = (figs || []).map((f) => {
+  const today = new Date().toISOString().slice(0, 10);
+  const rows = list.map((f) => {
     const p = fresh[f.figure_id];
     return {
       figure_id: f.figure_id, as_of: today, cms: display[f.figure_id], raw_signal: rawByFigure[f.figure_id],
@@ -66,7 +56,5 @@ export async function GET(req: NextRequest) {
 
   const recomputed = await rpc('clout_recompute_all');
   const debut = await rpc('clout_roll_debut');
-  const refreshed = toFetch.filter((f) => fresh[f.figure_id]).map((f) => f.display_name);
-  const throttled = toFetch.filter((f) => !fresh[f.figure_id]).map((f) => f.display_name);
-  return Response.json({ ok: true, as_of: today, refreshed, throttled, figures: rows.length, recomputed, debut });
+  return Response.json({ ok: true, as_of: today, refreshed: Object.keys(fresh).length, total: rows.length, recomputed, debut });
 }
