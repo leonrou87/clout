@@ -4,6 +4,11 @@
 // are card-for-card barter; the app is silent on money.
 
 const LS = window.localStorage;
+// In the native iOS/Android shell (Capacitor), call the hosted API/assets absolutely;
+// on the web it's same-origin. Shareable links always point at the public site.
+const NATIVE = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+const ORIGIN = NATIVE ? 'https://clout.kytepush.com' : '';
+const SITE = 'https://clout.kytepush.com';
 const state = {
   token: LS.getItem('clout_token') || null,
   user: LS.getItem('clout_handle') || null,
@@ -26,7 +31,7 @@ function clearSession() {
 async function api(path, opts = {}) {
   const headers = { 'content-type': 'application/json', ...(opts.headers || {}) };
   if (state.token) headers['authorization'] = 'Bearer ' + state.token;
-  const r = await fetch('/api' + path, { ...opts, headers });
+  const r = await fetch(ORIGIN + '/api' + path, { ...opts, headers });
   const data = await r.json().catch(() => ({}));
   if (r.status === 401) { clearSession(); render(); throw new Error('Please sign in'); }
   if (!r.ok) throw new Error(data.error || r.statusText);
@@ -83,7 +88,7 @@ routes.debut = async () => {
     ${d.recent_claims > 0
       ? `<div class="pill gold" style="margin-bottom:10px">🔥 FRENZY · ${d.recent_claims} claimed in the last 10 min · ${d.crowd} collectors</div>`
       : `<div class="muted" style="font-size:12px;margin-bottom:10px">👥 ${d.crowd} collectors here</div>`}
-    <div class="card-wrap" style="max-width:230px;margin:0 auto 14px"><img class="card-svg" src="/api/render/preview/${f.figure_id}/founders.svg"/></div>
+    <div class="card-wrap" style="max-width:230px;margin:0 auto 14px"><img class="card-svg" src="${ORIGIN}/api/render/preview/${f.figure_id}/founders.svg"/></div>
     <div class="panel">
       <div style="display:flex;justify-content:space-between;font-size:14px"><b>Founders claimed</b><span>${d.founders.claimed} / ${d.founders.total}</span></div>
       <div class="valbar" style="background:linear-gradient(90deg,var(--gold) ${pct}%, #2a2d3a ${pct}%)"></div>
@@ -199,7 +204,7 @@ routes.figure = async (id) => {
     <div class="muted" data-back style="margin-bottom:10px">‹ Back</div>
     <h1 class="h1">${f.display_name}</h1>
     <p class="sub"><span class="cat-dot" style="background:${catColor(f.category)}"></span> ${catLabel(f.category)} · Rank #${f.rank}</p>
-    <div class="card-wrap" style="max-width:230px;margin:0 auto 14px"><img class="card-svg" src="/api/render/preview/${f.figure_id}/founders.svg"/></div>
+    <div class="card-wrap" style="max-width:230px;margin:0 auto 14px"><img class="card-svg" src="${ORIGIN}/api/render/preview/${f.figure_id}/founders.svg"/></div>
     <div class="panel">
       <div class="kv"><span class="muted">Cultural Momentum</span><span class="cms">${f.cms} <span class="muted">/1000</span></span></div>
       <div class="kv"><span class="muted">7-day movement</span>${miniSpark(f.sparkline, 130, 28)}</div>
@@ -270,7 +275,7 @@ routes.collection = async () => {
       const mo = m > 0 ? `<span style="color:var(--good)">▲${m}</span>` : (m < 0 ? `<span style="color:var(--bad)">▼${Math.abs(m)}</span>` : '');
       grid.appendChild(el(`<div>
         <div class="card-wrap" data-card='${JSON.stringify({ id: card.card_id, name: card.display_name, serial: card.serial_number, fig: card.figure_id, tier: card.tier, rarity: card.rarity, locked: card.locked }).replace(/'/g, '&#39;')}'>
-          <img class="card-svg" src="/api/render/card/${card.card_id}.svg" loading="lazy"/>
+          <img class="card-svg" src="${ORIGIN}/api/render/card/${card.card_id}.svg" loading="lazy"/>
           ${badges ? `<div class="card-badge">${badges}</div>` : ''}
         </div>
         <div class="card-meta"><span>${card.rarity} #${card.serial_number}</span><span class="val">◈ ${fmt(card.value)} ${mo}</span></div>
@@ -296,7 +301,7 @@ routes.clash = async () => {
   if (c.cards.length >= 3) {
     const grid = $('#grid', v);
     c.cards.forEach((card) => grid.appendChild(el(`<div class="card-wrap clashpick ${state._clashPick.includes(card.card_id) ? 'sel' : ''}" data-pick="${card.card_id}">
-      <img class="card-svg" src="/api/render/card/${card.card_id}.svg" loading="lazy"/>
+      <img class="card-svg" src="${ORIGIN}/api/render/card/${card.card_id}.svg" loading="lazy"/>
       <div class="card-meta"><span>${card.rarity} #${card.serial_number}</span></div></div>`)));
     const sync = () => { const p = $('#play', v); $('#picks', v).textContent = `Selected ${state._clashPick.length}/3`; p.disabled = state._clashPick.length !== 3; p.textContent = state._clashPick.length === 3 ? 'Clash!' : 'Pick 3 cards'; };
     sync();
@@ -324,8 +329,8 @@ function showClash(r) {
   $('#again', bg).onclick = () => { bg.remove(); render(); refreshBalance(); };
   $('#shareClash', bg).onclick = async () => {
     const text = `I went ${r.your_rounds}/3 in Clout Clash ${r.you_won ? '🏆' : ''} — collect living cards on CLOUT`;
-    if (navigator.share) { try { await navigator.share({ title: 'CLOUT Clash', text, url: location.origin }); return; } catch {} }
-    try { await navigator.clipboard.writeText(location.origin); toast('Copied!', 'win'); } catch {}
+    if (navigator.share) { try { await navigator.share({ title: 'CLOUT Clash', text, url: SITE }); return; } catch {} }
+    try { await navigator.clipboard.writeText(SITE); toast('Copied!', 'win'); } catch {}
   };
 }
 
@@ -492,7 +497,7 @@ function onboarding(mode = 'signup') {
     <div class="brand" style="font-size:28px">◈ CLOUT</div>
     <div class="big">Collect the people<br>moving culture.</div>
     <p class="sub">Living trading cards of public figures — no photos, just a name, a live momentum score, and a serial that's yours forever. ${state.ref && mode === 'signup' ? `<br><b class="lead">@${state.ref} invited you</b> — you'll both get bonus coins.` : ''}</p>
-    <div class="fan"><img src="/api/render/preview/taylor_swift/open.svg"/><img src="/api/render/preview/caitlin_clark/founders.svg"/><img src="/api/render/preview/mrbeast/standard.svg"/></div>
+    <div class="fan"><img src="${ORIGIN}/api/render/preview/taylor_swift/open.svg"/><img src="${ORIGIN}/api/render/preview/caitlin_clark/founders.svg"/><img src="${ORIGIN}/api/render/preview/mrbeast/standard.svg"/></div>
     ${mode === 'signup' ? '<div class="pill gold free">🎁 Free pack of 3 cards on signup</div>' : '<div class="pill free">Welcome back</div>'}
     <input class="input" id="handle" placeholder="Handle" maxlength="20" autocomplete="username"/>
     <input class="input" id="password" type="password" placeholder="Password (6+ chars)" autocomplete="${mode === 'signup' ? 'new-password' : 'current-password'}"/>
@@ -536,7 +541,7 @@ function onboarding(mode = 'signup') {
 }
 
 function revealPack(pulled, coins, refBonus) {
-  const imgs = pulled.map((p) => `<img src="/api/render/card/${p.card_id}.svg"/>`).join('');
+  const imgs = pulled.map((p) => `<img src="${ORIGIN}/api/render/card/${p.card_id}.svg"/>`).join('');
   const bg = sheet(`<h3>🎉 Welcome to CLOUT!</h3>
     <p class="sub">Your free pack — 3 cards + ◈${fmt(coins + (refBonus || 0))} to start.</p>
     <div class="fan" style="height:180px">${imgs}</div>
@@ -579,7 +584,7 @@ async function proposeTrade(card) {
 }
 
 async function shareFigure(figureId, text) {
-  const url = `${location.origin}/f/${figureId}`; // rich crawlable page with its own preview image
+  const url = `${SITE}/f/${figureId}`; // rich crawlable page with its own preview image
   if (navigator.share) { try { await navigator.share({ title: 'CLOUT', text, url }); return; } catch {} }
   try { await navigator.clipboard.writeText(url); toast('Link copied — preview unfurls when shared!', 'win'); } catch { prompt('Share this link:', url); }
 }
@@ -656,8 +661,30 @@ async function doYield() {
 
 window.addEventListener('hashchange', render);
 
+// Native shell (Capacitor): status bar, hide splash, hardware back, open links externally.
+function initNative() {
+  if (!NATIVE) return;
+  const P = window.Capacitor.Plugins || {};
+  try { P.StatusBar?.setStyle?.({ style: 'DARK' }); P.StatusBar?.setBackgroundColor?.({ color: '#08090f' }); } catch {}
+  try { P.SplashScreen?.hide?.(); } catch {}
+  // Android hardware back: navigate back, or exit at the root
+  try {
+    P.App?.addListener?.('backButton', () => {
+      const h = location.hash.slice(1) || 'debut';
+      if (['debut', 'index', 'discover', 'collection', 'chat', 'profile'].includes(h)) P.App?.exitApp?.();
+      else { history.back(); render(); }
+    });
+  } catch {}
+  // open external links (news headlines) in the system browser, not the app webview
+  document.addEventListener('click', (e) => {
+    const a = e.target.closest('a[href^="http"]');
+    if (a) { e.preventDefault(); try { P.Browser?.open?.({ url: a.href }); } catch {} }
+  }, true);
+}
+
 (async function boot() {
-  if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});
+  initNative();
+  if (!NATIVE && 'serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});
   try { state.categories = await api('/meta/categories'); } catch {}
   // deep link: /?u=handle opens straight into a demo account (demo convenience)
   const u = new URLSearchParams(location.search).get('u');
