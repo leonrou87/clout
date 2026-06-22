@@ -212,7 +212,9 @@ routes.figure = async (id) => {
     <h2 class="h2">Value guide & reserve</h2>
     <p class="sub" style="margin-bottom:10px">Informational estimate (like a price guide), not a sale price. Buy a new copy from the publisher reserve with credits; trade copies with friends.</p>
     <div id="tiers"></div>
+    <div style="text-align:center;margin-top:16px"><a class="muted" id="report" style="font-size:12px;text-decoration:underline">⚐ Report this figure</a></div>
   </div>`);
+  $('#report', v).onclick = () => contactSheet({ topic: 'removal', figure: f.display_name });
   $('#hype', v).onclick = async () => {
     try { const r = await api(`/figures/${f.figure_id}/hype`, { method: 'POST' }); toast(r.counted ? `🔥 Hyped! ${f.display_name} hype: ${r.hype}` : 'You already hyped today', r.counted ? 'win' : ''); }
     catch (e) { toast(e.message, 'err'); }
@@ -454,11 +456,35 @@ function aboutHtml() {
     <div class="kv"><span class="muted">Age</span><span>13+</span></div>
   </div>
   <p class="disclaimer">Cultural Momentum Scores are CLOUT's read on public momentum, sourced from public headlines — informational signals, not factual claims and not financial advice. The Value Guide is an estimate, never a price we pay or that you can cash out.</p>
-  <h2 class="h2">Report or remove a figure</h2>
-  <p class="sub">Public figures may request removal. Email <a class="lead" href="mailto:hello@kytepush.com?subject=CLOUT%20figure%20removal">hello@kytepush.com</a> and we'll act promptly.</p>
+  <h2 class="h2">Contact & figure removal</h2>
+  <p class="sub">Questions, feedback, or a removal request from a public figure? Use the buttons below, or email <a class="lead" href="mailto:kytepush@gmail.com">kytepush@gmail.com</a> — we reply by email.</p>
   <p class="muted" style="font-size:12px">This is a plain-language summary. A full Terms of Service & Privacy Policy govern at public launch.</p>`;
 }
-routes.about = async () => el(`<div><div class="muted" data-back style="margin-bottom:6px">‹ Back</div><h1 class="h1">About CLOUT</h1>${aboutHtml()}</div>`);
+routes.about = async () => {
+  const v = el(`<div><div class="muted" data-back style="margin-bottom:6px">‹ Back</div><h1 class="h1">About CLOUT</h1>${aboutHtml()}
+    <div class="btnrow"><button class="btn" id="contact">✉️ Contact us</button><button class="btn ghost" id="report">⚐ Report a figure</button></div></div>`);
+  $('#contact', v).onclick = () => contactSheet({ topic: 'support' });
+  $('#report', v).onclick = () => contactSheet({ topic: 'removal' });
+  return v;
+};
+
+function contactSheet(prefill = {}) {
+  const removal = prefill.topic === 'removal';
+  const bg = sheet(`<h3>${removal ? 'Report / remove a figure' : 'Contact CLOUT'}</h3>
+    <p class="sub">${removal ? "Public figures can request removal — tell us who and we'll act promptly." : 'Questions or feedback? We read every message and reply by email.'}</p>
+    <input class="input" id="c_email" type="email" placeholder="Your email" value="${prefill.email || ''}"/>
+    ${removal ? `<input class="input" id="c_figure" placeholder="Figure name" value="${prefill.figure || ''}"/>` : ''}
+    <textarea class="input" id="c_msg" rows="4" placeholder="Message" style="resize:none;font-family:inherit">${removal && prefill.figure ? `Please review/remove ${prefill.figure} from CLOUT.` : ''}</textarea>
+    <button class="btn gold" id="c_send">Send message</button>`);
+  $('#c_send', bg).onclick = async () => {
+    const message = $('#c_msg', bg).value.trim();
+    if (!message) return toast('Add a message', 'err');
+    try {
+      await api('/contact', { method: 'POST', body: JSON.stringify({ email: $('#c_email', bg).value.trim(), topic: removal ? 'removal' : 'support', figure: $('#c_figure', bg)?.value.trim() || prefill.figure, message }) });
+      bg.remove(); toast("Sent — we'll reply by email.", 'win');
+    } catch (e) { toast(e.message, 'err'); }
+  };
+}
 
 /* ============================== ONBOARDING / AUTH ============================== */
 function onboarding(mode = 'signup') {
@@ -470,6 +496,7 @@ function onboarding(mode = 'signup') {
     ${mode === 'signup' ? '<div class="pill gold free">🎁 Free pack of 3 cards on signup</div>' : '<div class="pill free">Welcome back</div>'}
     <input class="input" id="handle" placeholder="Handle" maxlength="20" autocomplete="username"/>
     <input class="input" id="password" type="password" placeholder="Password (6+ chars)" autocomplete="${mode === 'signup' ? 'new-password' : 'current-password'}"/>
+    ${mode === 'signup' ? '<input class="input" id="email" type="email" placeholder="Email (optional — receipts & support)" autocomplete="email"/>' : ''}
     ${mode === 'signup' ? `<label class="agegate"><input type="checkbox" id="age"/><span>I'm 13 or older and agree to the <a class="lead" id="terms">Terms</a>.</span></label>` : ''}
     <button class="btn gold" id="go">${mode === 'signup' ? 'Claim my free pack' : 'Log in'}</button>
     <p class="muted" style="font-size:13px;margin-top:14px">${mode === 'signup' ? 'Already have an account?' : 'New to CLOUT?'} <a class="lead" id="toggle">${mode === 'signup' ? 'Log in' : 'Sign up'}</a></p>
@@ -484,7 +511,7 @@ function onboarding(mode = 'signup') {
     if (mode === 'signup' && !$('#age', v).checked) return toast('Please confirm you’re 13 or older', 'err');
     try {
       if (mode === 'signup') {
-        const r = await api('/auth/signup', { method: 'POST', body: JSON.stringify({ handle, password, ref: state.ref }) });
+        const r = await api('/auth/signup', { method: 'POST', body: JSON.stringify({ handle, password, email: ($('#email', v)?.value || '').trim() || undefined, ref: state.ref }) });
         setSession(r.token, r.handle);
         revealPack(r.welcome.pulled, r.welcome.coins, r.referral_bonus);
       } else {

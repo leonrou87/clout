@@ -1,5 +1,6 @@
 import type { NextRequest } from 'next/server';
-import { rpc } from '@/lib/supabase';
+import { rpc, supabaseAdmin } from '@/lib/supabase';
+import { sendMail, shell, isEmail, SUPPORT_INBOX } from '@/lib/mail';
 // pure JS modules reused from the original build (typed via lib/mjs.d.ts)
 import { renderCardSVG } from '@/lib/renderer.mjs';
 import { CATEGORIES } from '@/lib/shared.mjs';
@@ -10,6 +11,7 @@ export const dynamic = 'force-dynamic';
 type Ctx = { params: Promise<{ path: string[] }> };
 
 const ok = (d: unknown, status = 200) => Response.json(d as object, { status });
+const esc = (s: string) => String(s).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c] as string)).replace(/\n/g, '<br>');
 const fail = (e: unknown, status = 400) => Response.json({ error: String((e as Error)?.message || e) }, { status });
 const svg = (s: string) => new Response(s, { headers: { 'content-type': 'image/svg+xml', 'cache-control': 'public, max-age=30' } });
 
@@ -73,7 +75,34 @@ export async function POST(req: NextRequest, ctx: Ctx) {
   const [a, b, c] = path;
   const body = await req.json().catch(() => ({}));
   try {
-    if (a === 'auth' && b === 'signup') return ok({ ok: true, ...(await rpc('clout_signup', { p_handle: body.handle, p_password: body.password, p_ref: body.ref ?? null }) as object) });
+    if (a === 'auth' && b === 'signup') {
+      const r = await rpc('clout_signup', { p_handle: body.handle, p_password: body.password, p_ref: body.ref ?? null, p_email: body.email ?? null }) as { handle: string; email?: string; referral_bonus?: number };
+      if (r.email && isEmail(r.email)) {
+        try {
+          await sendMail({ to: r.email, subject: 'Welcome to CLOUT 🎉', html: shell(`Welcome, <b>@${esc(r.handle)}</b>! Your free 3-card welcome pack is in your collection, plus ◈${(1500 + (r.referral_bonus || 0)).toLocaleString()} to start.<br><br>Collect living cards of the people moving culture, claim today's Debut, play Clout Clash, and trade with friends.<br><br><a href="https://clout.kytepush.com" style="color:#ff2e88;font-weight:700">Open CLOUT →</a>`) });
+        } catch {}
+      }
+      return ok({ ok: true, ...r });
+    }
+
+    // public contact / figure-removal — emails the support inbox + acks the sender
+    if (a === 'contact' && !b) {
+      const email = String(body.email || '').trim();
+      const topic = body.topic === 'removal' ? 'removal' : 'support';
+      const figure = body.figure ? String(body.figure).slice(0, 80) : null;
+      const message = String(body.message || '').trim().slice(0, 4000);
+      if (!message) return fail('EMPTY_MESSAGE');
+      await supabaseAdmin.from('clout_support').insert({ email: email || null, topic, figure, message });
+      const label = topic === 'removal' ? 'Figure removal' : 'Support';
+      try {
+        await sendMail({ to: SUPPORT_INBOX, replyTo: isEmail(email) ? email : undefined,
+          subject: `CLOUT ${label} request${figure ? ': ' + figure : ''}`,
+          html: shell(`<b>${label} request</b><br>From: ${esc(email || '(no email given)')}<br>${figure ? `Figure: ${esc(figure)}<br>` : ''}<br>${esc(message)}`) });
+        if (isEmail(email)) await sendMail({ to: email, subject: 'We got your message — CLOUT',
+          html: shell(`Thanks for reaching out — we've received your ${topic === 'removal' ? 'removal request' : 'message'} and will reply soon.<br><br><i>Your message:</i><br>${esc(message)}`) });
+      } catch {}
+      return ok({ ok: true });
+    }
     if (a === 'auth' && b === 'login') return ok({ ok: true, ...(await rpc('clout_login', { p_handle: body.handle, p_password: body.password }) as object) });
     if (a === 'auth' && b === 'demo') return ok({ ok: true, ...(await rpc('clout_demo_login', { p_handle: body.handle }) as object) });
     if (a === 'auth' && b === 'logout') {
