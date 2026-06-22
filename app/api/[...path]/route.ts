@@ -124,6 +124,8 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     if (a === 'cards' && b && c === 'lock') return ok({ ok: true, ...(await rpc('clout_toggle_lock', { p_user: uid, p_card: b }) as object) });
     if (a === 'clash' && !b) return ok({ ok: true, ...(await rpc('clout_clash', { p_user: uid, p_cards: body.cards ?? [] }) as object) });
     if (a === 'figures' && b && c === 'hype') return ok({ ok: true, ...(await rpc('clout_hype', { p_figure: b, p_user: uid }) as object) });
+    if (a === 'me' && b === 'delete') { await rpc('clout_delete_account', { p_user: uid }); return ok({ ok: true }); }
+    if (a === 'push' && b === 'register') { await rpc('clout_register_push', { p_user: uid, p_token: body.token, p_platform: body.platform || 'unknown' }); return ok({ ok: true }); }
     if (a === 'admin' && b === 'figures' && c) { await rpc('clout_admin_remove', { p_figure: c }); return ok({ ok: true }); }
     return new Response('not found', { status: 404 });
   } catch (e) { return fail(e); }

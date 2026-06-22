@@ -405,7 +405,9 @@ routes.profile = async () => {
       <div class="kv"><span class="muted">Your invite</span><span style="font-size:12px;max-width:55%;overflow:hidden;text-overflow:ellipsis">${inv.invite_url}</span></div>
     </div>
     <button class="btn ghost" data-go="about" style="margin-top:6px">ℹ️ About, terms & figure removal</button>
+    <button class="btn ghost" data-go="privacy" style="margin-top:8px">🔒 Privacy policy</button>
     <div class="btnrow"><button class="btn ghost" id="switch">Switch demo account</button><button class="btn ghost" id="logout">Log out</button></div>
+    <button id="del" style="margin-top:14px;background:none;border:none;color:var(--bad);font-size:13px;text-decoration:underline;width:100%">Delete my account</button>
     <p class="disclaimer" style="margin-top:18px">CLOUT is a digital collectible card game. The Value Guide is an informational estimate, not a price we pay or that you can cash out. Scores are CLOUT's read on public momentum, sourced from public headlines — not factual claims.</p>
   </div>`);
   // movers
@@ -443,6 +445,12 @@ routes.profile = async () => {
     catch (e) { toast('No such demo account', 'err'); }
   };
   $('#logout', v).onclick = async () => { try { await api('/auth/logout', { method: 'POST' }); } catch {} clearSession(); location.hash = ''; render(); };
+  $('#del', v).onclick = async () => {
+    if (!confirm('Delete your account? This permanently removes your cards, collection, and data. This cannot be undone.')) return;
+    if (!confirm('Are you absolutely sure? All your cards and coins will be gone forever.')) return;
+    try { await api('/me/delete', { method: 'POST' }); clearSession(); toast('Your account was deleted.', 'win'); location.hash = ''; render(); }
+    catch (e) { toast(e.message, 'err'); }
+  };
   return v;
 };
 
@@ -465,6 +473,18 @@ function aboutHtml() {
   <p class="sub">Questions, feedback, or a removal request from a public figure? Use the buttons below, or email <a class="lead" href="mailto:kytepush@gmail.com">kytepush@gmail.com</a> — we reply by email.</p>
   <p class="muted" style="font-size:12px">This is a plain-language summary. A full Terms of Service & Privacy Policy govern at public launch.</p>`;
 }
+routes.privacy = async () => el(`<div><div class="muted" data-back style="margin-bottom:6px">‹ Back</div>
+  <h1 class="h1">Privacy Policy</h1><p class="sub">Last updated June 2026</p>
+  <div class="panel" style="line-height:1.6;font-size:14px">
+    <p><b>What we collect.</b> Your handle, an optional email, a securely hashed password, and gameplay data (cards, coins, trades, chat, check-ins) plus basic technical logs.</p>
+    <p><b>How we use it.</b> To run your account and the game, send transactional/support email (if you give an address), prevent abuse, and improve CLOUT. Momentum scores come only from public news — never your activity.</p>
+    <p><b>What we don't do.</b> We don't sell your data. Coins & cards are in-app only and never cashable.</p>
+    <p><b>Sharing.</b> Service providers that run CLOUT (Supabase, Vercel, Gmail) process data on our behalf.</p>
+    <p><b>Public activity.</b> Handle, collection stats, leaderboard standing, and chat are visible to others.</p>
+    <p><b>Deletion.</b> Delete your account anytime in Profile → Delete my account. Help: <a class="lead" href="mailto:kytepush@gmail.com">kytepush@gmail.com</a>.</p>
+    <p><b>Children.</b> 13+. <b>Contact.</b> kytepush@gmail.com</p>
+  </div></div>`);
+
 routes.about = async () => {
   const v = el(`<div><div class="muted" data-back style="margin-bottom:6px">‹ Back</div><h1 class="h1">About CLOUT</h1>${aboutHtml()}
     <div class="btnrow"><button class="btn" id="contact">✉️ Contact us</button><button class="btn ghost" id="report">⚐ Report a figure</button></div></div>`);
@@ -600,6 +620,7 @@ async function showProvenance(card) {
 async function maybeCheckin() {
   if (!state.token || state._checkedIn) return;
   state._checkedIn = true;
+  syncPush();
   try { const r = await api('/me/checkin', { method: 'POST' }); if (r.credited > 0) { toast(`🔥 Day ${r.streak} streak · +◈${r.credited}`, 'win'); refreshBalance(); } } catch {}
 }
 
@@ -680,6 +701,19 @@ function initNative() {
     const a = e.target.closest('a[href^="http"]');
     if (a) { e.preventDefault(); try { P.Browser?.open?.({ url: a.href }); } catch {} }
   }, true);
+  // push notifications — only if the plugin is installed + configured (FCM/APNs); else no-op
+  try {
+    const Push = P.PushNotifications;
+    if (Push) {
+      Push.addListener('registration', (t) => { state._pushToken = t.value; syncPush(); });
+      Push.requestPermissions().then((perm) => { if (perm && perm.receive === 'granted') Push.register(); }).catch(() => {});
+    }
+  } catch {}
+}
+function syncPush() {
+  if (!state.token || !state._pushToken) return;
+  const platform = (window.Capacitor && window.Capacitor.getPlatform && window.Capacitor.getPlatform()) || 'unknown';
+  api('/push/register', { method: 'POST', body: JSON.stringify({ token: state._pushToken, platform }) }).catch(() => {});
 }
 
 (async function boot() {
