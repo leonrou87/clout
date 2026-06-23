@@ -302,3 +302,7 @@ main {
 
 /* nicer empty states */
 .empty { background: var(--panel); border: 1px dashed var(--line); border-radius: var(--r); }
+
+/* a11y: visible keyboard focus */
+:focus-visible { outline: 2px solid var(--accent2); outline-offset: 2px; border-radius: 8px; }
+.tab:focus-visible, .chip:focus-visible, .btn:focus-visible { outline-offset: -2px; }

@@ -12,6 +12,11 @@ type Ctx = { params: Promise<{ path: string[] }> };
 
 const ok = (d: unknown, status = 200) => Response.json(d as object, { status });
 const esc = (s: string) => String(s).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c] as string)).replace(/\n/g, '<br>');
+const clientIp = (req: NextRequest) => (req.headers.get('x-forwarded-for') || '').split(',')[0].trim() || 'unknown';
+const limited = () => Response.json({ error: 'RATE_LIMITED' }, { status: 429 });
+async function rateOk(action: string, ip: string, max: number, secs: number) {
+  try { return (await rpc('clout_rate', { p_key: `${action}:${ip}`, p_max: max, p_secs: secs })) as boolean; } catch { return true; }
+}
 const fail = (e: unknown, status = 400) => Response.json({ error: String((e as Error)?.message || e) }, { status });
 const svg = (s: string) => new Response(s, { headers: { 'content-type': 'image/svg+xml', 'cache-control': 'public, max-age=30' } });
 
@@ -77,6 +82,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
   const body = await req.json().catch(() => ({}));
   try {
     if (a === 'auth' && b === 'signup') {
+      if (!(await rateOk('signup', clientIp(req), 6, 3600))) return limited();
       const r = await rpc('clout_signup', { p_handle: body.handle, p_password: body.password, p_ref: body.ref ?? null, p_email: body.email ?? null }) as { handle: string; email?: string; referral_bonus?: number };
       if (r.email && isEmail(r.email)) {
         try {
@@ -88,6 +94,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
 
     // public contact / figure-removal — emails the support inbox + acks the sender
     if (a === 'contact' && !b) {
+      if (!(await rateOk('contact', clientIp(req), 6, 3600))) return limited();
       const email = String(body.email || '').trim();
       const topic = body.topic === 'removal' ? 'removal' : 'support';
       const figure = body.figure ? String(body.figure).slice(0, 80) : null;
@@ -104,7 +111,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
       } catch {}
       return ok({ ok: true });
     }
-    if (a === 'auth' && b === 'login') return ok({ ok: true, ...(await rpc('clout_login', { p_handle: body.handle, p_password: body.password }) as object) });
+    if (a === 'auth' && b === 'login') { if (!(await rateOk('login', clientIp(req), 12, 300))) return limited(); return ok({ ok: true, ...(await rpc('clout_login', { p_handle: body.handle, p_password: body.password }) as object) }); }
     if (a === 'auth' && b === 'demo') return ok({ ok: true, ...(await rpc('clout_demo_login', { p_handle: body.handle }) as object) });
     if (a === 'auth' && b === 'logout') {
       const t = (req.headers.get('authorization') || '').replace('Bearer ', '');

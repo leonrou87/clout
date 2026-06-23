@@ -672,7 +672,11 @@ async function render() {
     const node = await (routes[route] || routes.index)(arg);
     node.classList.add('view-in');
     view.replaceChildren(node);
-  } catch (e) { view.replaceChildren(el(`<p class="empty">Couldn't load: ${e.message}</p>`)); }
+  } catch (e) {
+    const er = el(`<div class="empty">Couldn't load that.<br><span class="muted" style="font-size:12px">${escapeHtml(e.message || 'Check your connection.')}</span><br><button class="btn ghost sm" id="retry" style="margin-top:14px">Retry</button></div>`);
+    view.replaceChildren(er);
+    const rb = $('#retry', er); if (rb) rb.onclick = render;
+  }
   refreshBalance();
   maybeCheckin();
 }
