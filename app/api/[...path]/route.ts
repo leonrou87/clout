@@ -42,6 +42,7 @@ export async function GET(req: NextRequest, ctx: Ctx) {
     if (a === 'leaderboards' && b) return ok(await rpc('clout_leaderboard', { p_kind: b }));
     if (a === 'trending' && !b) return ok(await rpc('clout_trending'));
     if (a === 'search' && !b) { const q = (sp.get('q') || '').trim(); return ok(q ? await rpc('clout_search', { p_q: q }) : []); }
+    if (a === 'activity' && !b) return ok(await rpc('clout_activity'));
     if (a === 'cards' && b && c === 'provenance') return ok(await rpc('clout_card_provenance', { p_card: b }));
     if (a === 'chat' && b) return ok(await rpc('clout_chat', { p_room: decodeURIComponent(b), p_user: await userId(req) }));
 

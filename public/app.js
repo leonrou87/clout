@@ -360,18 +360,32 @@ function showClash(r) {
   };
 }
 
+function ago(iso) {
+  const s = Math.max(0, (Date.now() - new Date(iso).getTime()) / 1000);
+  if (s < 60) return 'now'; if (s < 3600) return Math.floor(s / 60) + 'm';
+  if (s < 86400) return Math.floor(s / 3600) + 'h'; return Math.floor(s / 86400) + 'd';
+}
+
 routes.chat = async () => {
-  // rooms = global + figure rooms where you hold a card
-  const col = state.user ? await api('/me/collection') : { cards: [] };
+  // rooms = global + figure rooms where you hold a card; plus a live activity feed
+  const [col, activity] = await Promise.all([
+    state.user ? api('/me/collection') : Promise.resolve({ cards: [] }),
+    api('/activity').catch(() => []),
+  ]);
   const figs = [...new Map(col.cards.map((c) => [c.figure_id, c.display_name])).entries()];
   const v = el(`<div>
     <h1 class="h1">Community</h1>
-    <p class="sub">Talk all things CLOUT. Each figure has its own room — hold a card to join the conversation (Fan League access).</p>
+    <p class="sub">See what collectors are pulling, then talk it out. Each figure has its own room — hold a card to join.</p>
+    ${activity.length ? '<div class="h2" style="margin-top:4px">⚡ Live activity</div><div id="feed"></div>' : ''}
     <div class="chat-list">
       <div class="row" data-go="room/global"><span class="ti" style="font-size:20px">🌐</span><div><b>Global board</b><div class="muted" style="font-size:12px">Everyone</div></div><div class="ri">›</div></div>
       <div class="h2">Your figure rooms</div>
       ${figs.length ? figs.map(([fid, name]) => `<div class="row" data-go="room/${fid}"><span class="cat-dot" style="background:var(--accent)"></span><div><b>${name}</b><div class="muted" style="font-size:12px">Holders' room</div></div><div class="ri">›</div></div>`).join('') : '<div class="muted" style="font-size:13px">Collect a card to unlock its room.</div>'}
     </div></div>`);
+  const feed = $('#feed', v);
+  if (feed) activity.slice(0, 12).forEach((ac) => feed.appendChild(el(`<div class="row" data-go="figure/${ac.figure_id}">
+    <div><div style="font-weight:600"><span class="lead">@${escapeHtml(ac.handle)}</span> collected ${ac.rarity} ${escapeHtml(ac.display_name)} <span class="muted">#${ac.serial}</span>${ac.founding ? ' 🏅' : ''}</div></div>
+    <div class="ri muted" style="font-size:11px">${ago(ac.at)}</div></div>`)));
   return v;
 };
 
