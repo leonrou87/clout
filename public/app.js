@@ -611,12 +611,29 @@ function revealPack(pulled, coins, refBonus) {
 
 /* ============================== CARD ACTION SHEET ============================== */
 function cardActions(card) {
-  const bg = sheet(`<h3>${card.name} #${card.serial}</h3>
-    <p class="sub">${card.rarity || ''} ${card.tier}. Trade it card-for-card, gift it, or share it. CLOUT never attaches money to a trade.</p>
+  const bg = sheet(`
+    <div class="card-wrap" style="max-width:188px;margin:0 auto 12px"><img class="card-svg" src="${ORIGIN}/api/render/card/${card.id}.svg"/></div>
+    <h3 style="text-align:center;margin:0 0 2px">${escapeHtml(card.name)} <span class="muted">#${card.serial}</span></h3>
+    <div class="muted" style="text-align:center;font-size:13px;margin-bottom:12px">${card.rarity || ''} ${card.tier}${card.locked ? ' · 🔒 vaulted' : ''}</div>
+    <div id="cardstats"></div>
     <button class="btn" id="trade">🔄 Propose a trade</button>
-    <div class="btnrow"><button class="btn ghost" id="gift">🎁 Gift to a friend</button><button class="btn ghost" id="share">📤 Share</button></div>
+    <div class="btnrow"><button class="btn ghost" id="gift">🎁 Gift</button><button class="btn ghost" id="share">📤 Share</button></div>
     <div class="btnrow"><button class="btn ghost" id="lock">${card.locked ? '🔓 Unlock' : '🔒 Vault lock'}</button><button class="btn ghost" id="prov">📜 History</button></div>
-    <button class="btn ghost" id="room" style="margin-top:10px">💬 Go to ${card.name} room</button>`);
+    <button class="btn ghost" id="room" style="margin-top:10px">💬 ${escapeHtml(card.name)} room</button>`);
+  (async () => {
+    try {
+      const f = await api('/figures/' + card.fig);
+      const ct = (f.card_types || []).find((c) => c.tier === card.tier);
+      const stats = $('#cardstats', bg); if (!stats || !ct) return;
+      stats.appendChild(el(`<div class="panel" style="margin-bottom:12px">
+        <div class="kv"><span class="muted">Value guide</span><span class="val">◈ ${fmt(ct.value)} <span class="muted" style="font-weight:600;font-size:12px">${fmt(ct.value_lo)}–${fmt(ct.value_hi)}</span></span></div>
+        ${ct.value_sparkline && ct.value_sparkline.length > 1 ? `<div class="kv"><span class="muted">Value trend</span>${miniSpark(ct.value_sparkline, 130, 28, 'var(--gold)')}</div>` : ''}
+        <div class="kv"><span class="muted">Momentum</span><span class="cms">${f.cms}</span></div>
+        <div class="kv"><span class="muted">Holders · supply</span><span>${ct.holders} · ${ct.minted}/${fmt(ct.print_run)}</span></div>
+        <div class="kv"><span class="muted">Left forever</span><span>${fmt(ct.print_run - ct.minted)}</span></div>
+      </div>`));
+    } catch {}
+  })();
   $('#lock', bg).onclick = async () => {
     try { const r = await api(`/cards/${card.id}/lock`, { method: 'POST' }); bg.remove(); toast(r.locked ? 'Card vaulted 🔒 — safe from trades' : 'Card unlocked', 'win'); render(); }
     catch (e) { toast(e.message, 'err'); }
