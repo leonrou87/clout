@@ -132,6 +132,32 @@ async function enableNotify() {
   else toast('Notifications blocked — enable them in settings.');
 }
 
+routes.search = async () => {
+  const v = el(`<div>
+    <div class="muted" data-back style="margin-bottom:6px">‹ Back</div>
+    <h1 class="h1">Search</h1>
+    <input class="input" id="q" placeholder="Search figures by name…" autocomplete="off" autocapitalize="none"/>
+    <div id="results"><p class="muted" style="font-size:13px">Type a name to find anyone on the CLOUT 500.</p></div>
+  </div>`);
+  const input = $('#q', v), results = $('#results', v);
+  let t;
+  const run = async () => {
+    const q = input.value.trim();
+    if (!q) { results.innerHTML = '<p class="muted" style="font-size:13px">Type a name to find anyone on the CLOUT 500.</p>'; return; }
+    try {
+      const rows = await api('/search?q=' + encodeURIComponent(q));
+      if (!rows.length) { results.innerHTML = '<div class="empty">No figures match “' + escapeHtml(q) + '”.</div>'; return; }
+      results.replaceChildren(...rows.map((f) => el(`<div class="row" data-go="figure/${f.figure_id}">
+        <div><div style="font-weight:700">${escapeHtml(f.display_name)}</div>
+          <div class="muted" style="font-size:12px"><span class="cat-dot" style="background:${catColor(f.category)}"></span> ${catLabel(f.category)}</div></div>
+        <div class="ri"><div class="cms">${f.cms}</div><div class="muted" style="font-size:11px">#${f.rank}</div></div></div>`)));
+    } catch {}
+  };
+  input.oninput = () => { clearTimeout(t); t = setTimeout(run, 160); };
+  setTimeout(() => input.focus(), 60);
+  return v;
+};
+
 routes.index = async () => {
   const { figures, as_of } = await api('/index/clout500');
   const top = figures.slice(0, 40); // sparkline is included in the single call now

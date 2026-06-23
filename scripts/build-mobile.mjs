@@ -32,7 +32,7 @@ fs.writeFileSync(path.join(www, 'index.html'), `<!doctype html>
   <div id="phone">
     <header class="topbar" id="topbar">
       <div class="brand" data-go="index">◈ CLOUT</div>
-      <div class="top-actions"><button class="chip" id="balanceChip" data-go="profile">◈ —</button></div>
+      <div class="top-actions"><button class="chip" data-go="search" aria-label="Search">🔍</button><button class="chip" id="balanceChip" data-go="profile">◈ —</button></div>
     </header>
     <main id="view"></main>
     <nav class="tabbar" id="tabbar">${tabs}</nav>

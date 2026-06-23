@@ -8,6 +8,7 @@ export default function Home() {
       <header className="topbar" id="topbar">
         <div className="brand" data-go="index">◈ CLOUT</div>
         <div className="top-actions">
+          <button className="chip" data-go="search" aria-label="Search">🔍</button>
           <button className="chip" id="balanceChip" data-go="profile">◈ —</button>
         </div>
       </header>
