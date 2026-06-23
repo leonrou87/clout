@@ -271,3 +271,34 @@ main {
 /* value text gets a gold glow on the big numbers */
 .val { text-shadow: 0 0 18px rgba(255,204,77,.18); }
 .cms { text-shadow: 0 0 18px rgba(122,31,255,.22); }
+
+/* ============================ onboarding hero + pack reveal ============================ */
+.onboard { position: relative; }
+.onboard::before {
+  content: ''; position: absolute; top: -30px; left: 50%; transform: translateX(-50%);
+  width: 460px; max-width: 130%; height: 420px; z-index: -1; pointer-events: none;
+  background: radial-gradient(circle at 50% 38%, rgba(122,31,255,.30), rgba(255,46,136,.10) 40%, transparent 62%);
+}
+.onboard .big { font-size: 34px; line-height: 1.08; letter-spacing: -1px; }
+.gradtext {
+  background: linear-gradient(90deg, #ff2e88, #7a1fff, #22d3ee, #ff2e88);
+  background-size: 300% 100%; -webkit-background-clip: text; background-clip: text; color: transparent;
+  animation: gradmove 6s linear infinite;
+}
+@keyframes gradmove { to { background-position: 300% center; } }
+@media (prefers-reduced-motion: no-preference) {
+  .fan { animation: floatY 5s ease-in-out infinite; }
+  @keyframes floatY { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-7px); } }
+  .fan.reveal { animation: none; }
+  .fan.reveal img { animation: popIn .55s var(--ease) both; }
+  .fan.reveal img:nth-child(1) { animation-delay: .05s; }
+  .fan.reveal img:nth-child(2) { animation-delay: .16s; }
+  .fan.reveal img:nth-child(3) { animation-delay: .27s; }
+  @keyframes popIn { from { opacity: 0; transform: translateY(22px) scale(.8); } }
+}
+.onboard .input { transition: border-color .2s, box-shadow .2s; }
+.onboard .input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(122,31,255,.25); }
+.pill.gold.free { box-shadow: 0 6px 22px rgba(255,204,77,.18); }
+
+/* nicer empty states */
+.empty { background: var(--panel); border: 1px dashed var(--line); border-radius: var(--r); }

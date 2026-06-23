@@ -541,7 +541,7 @@ function contactSheet(prefill = {}) {
 function onboarding(mode = 'signup') {
   const v = el(`<div class="onboard">
     <div class="brand" style="font-size:28px">◈ CLOUT</div>
-    <div class="big">Collect the people<br>moving culture.</div>
+    <div class="big">Collect the people<br><span class="gradtext">moving culture.</span></div>
     <p class="sub">Living trading cards of public figures — no photos, just a name, a live momentum score, and a serial that's yours forever. ${state.ref && mode === 'signup' ? `<br><b class="lead">@${state.ref} invited you</b> — you'll both get bonus coins.` : ''}</p>
     <div class="fan"><img src="${ORIGIN}/api/render/preview/taylor_swift/open.svg"/><img src="${ORIGIN}/api/render/preview/caitlin_clark/founders.svg"/><img src="${ORIGIN}/api/render/preview/mrbeast/standard.svg"/></div>
     ${mode === 'signup' ? '<div class="pill gold free">🎁 Free pack of 3 cards on signup</div>' : '<div class="pill free">Welcome back</div>'}
@@ -590,7 +590,7 @@ function revealPack(pulled, coins, refBonus) {
   const imgs = pulled.map((p) => `<img src="${ORIGIN}/api/render/card/${p.card_id}.svg"/>`).join('');
   const bg = sheet(`<h3>🎉 Welcome to CLOUT!</h3>
     <p class="sub">Your free pack — 3 cards + ◈${fmt(coins + (refBonus || 0))} to start.</p>
-    <div class="fan" style="height:180px">${imgs}</div>
+    <div class="fan reveal" style="height:180px">${imgs}</div>
     <button class="btn gold" id="open">Open my collection</button>`);
   $('#open', bg).onclick = () => { bg.remove(); location.hash = 'collection'; render(); refreshBalance(); };
 }
