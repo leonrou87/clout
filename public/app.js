@@ -132,6 +132,23 @@ async function enableNotify() {
   else toast('Notifications blocked — enable them in settings.');
 }
 
+routes.leaderboard = async () => {
+  const rows = await api('/leaderboards/value');
+  const v = el(`<div>
+    <div class="muted" data-back style="margin-bottom:6px">‹ Back</div>
+    <h1 class="h1">🏆 Top Collectors</h1>
+    <p class="sub">Ranked by collection status score — rarity + low serials + live momentum. Status, never cash.</p>
+    <div id="list"></div></div>`);
+  const list = $('#list', v);
+  if (!rows.length) { list.innerHTML = '<div class="empty">No collectors yet — be the first.</div>'; return v; }
+  rows.forEach((r, i) => list.appendChild(el(`<div class="row ${r.handle === state.user ? 'me' : ''}">
+    <span class="rank">${i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : i + 1}</span>
+    <div><div style="font-weight:700">@${escapeHtml(r.handle)}${r.handle === state.user ? ' <span class="muted" style="font-weight:600">· you</span>' : ''}</div>
+      <div class="muted" style="font-size:12px">${r.cards} card${r.cards === 1 ? '' : 's'}</div></div>
+    <div class="ri"><div class="val">${fmt(r.value)}</div><div class="muted" style="font-size:11px">status</div></div></div>`)));
+  return v;
+};
+
 routes.search = async () => {
   const v = el(`<div>
     <div class="muted" data-back style="margin-bottom:6px">‹ Back</div>
@@ -427,6 +444,7 @@ routes.profile = async () => {
       <div class="kv"><span class="muted">Net-worth rank</span><span>#${port.networth_rank} of ${port.collectors}</span></div>
       <div class="kv"><span class="muted">You can afford</span><span>${Math.floor(port.balance / 1500)} Founders · ${Math.floor(port.balance / 400)} Standard</span></div>
     </div>
+    <button class="btn ghost" data-go="leaderboard">🏆 Top collectors leaderboard</button>
     ${port.movers && port.movers.length ? '<div class="h2">Your movers</div><div id="movers"></div>' : ''}
     ${incoming.length ? `<div class="panel" style="border-color:var(--gold)"><b>📥 ${incoming.length} incoming trade${incoming.length > 1 ? 's' : ''}</b><div id="incoming" style="margin-top:8px"></div></div>` : ''}
     <button class="btn gold" id="buyCoins">Buy Clout Coins (sandbox)</button>
