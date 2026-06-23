@@ -11,13 +11,21 @@
   --bad: #ff5470;
   --gold: #ffcc4d;
   --safe-b: env(safe-area-inset-bottom, 0px);
+  --grad: linear-gradient(90deg, var(--accent2), var(--accent));
+  --shadow-1: 0 2px 8px rgba(0,0,0,.35);
+  --shadow-2: 0 12px 34px rgba(0,0,0,.5);
+  --shadow-glow: 0 8px 30px rgba(122,31,255,.22);
+  --r-sm: 12px; --r: 16px; --r-lg: 22px;
+  --ease: cubic-bezier(.22,.61,.36,1);
 }
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 html, body { margin: 0; padding: 0; height: 100%; width: 100%; max-width: 100%; overflow-x: hidden; }
 body {
   background: var(--bg);
   color: var(--txt);
-  font-family: 'Helvetica Neue', -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
   overscroll-behavior: none;
 }
 a { color: inherit; text-decoration: none; }
@@ -191,3 +199,75 @@ main {
 /* launch: age gate checkbox */
 .agegate { display: flex; align-items: flex-start; gap: 10px; text-align: left; font-size: 13px; color: var(--muted); margin: 2px 4px 14px; line-height: 1.4; }
 .agegate input { width: 20px; height: 20px; accent-color: var(--accent); margin-top: 1px; flex: 0 0 auto; }
+
+/* ============================ v2 production polish ============================ */
+@media (prefers-reduced-motion: no-preference) {
+  .view-in { animation: viewIn .32s var(--ease) both; }
+  @keyframes viewIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+}
+/* staggered list/grid entrance */
+.view-in .row, .view-in .cardgrid > *, .view-in .panel { animation: rowIn .38s var(--ease) both; }
+.view-in .row:nth-child(n+2) { animation-delay: .02s; }
+@keyframes rowIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+/* brand mark gets a subtle living glow */
+.brand { filter: drop-shadow(0 0 14px rgba(255,46,136,.25)); }
+
+/* top bar / chip refinement */
+.topbar { border-bottom: 1px solid var(--line); box-shadow: 0 1px 0 rgba(255,255,255,.02); }
+.chip { box-shadow: var(--shadow-1); transition: transform .12s var(--ease), border-color .2s; }
+.chip:active { transform: scale(.96); }
+
+/* tab bar: active gets a gradient pill + lift */
+.tab { position: relative; transition: color .2s var(--ease); }
+.tab .ti { transition: transform .2s var(--ease), filter .2s var(--ease); }
+.tab.active .ti { transform: translateY(-1px) scale(1.08); }
+.tab.active::before {
+  content: ''; position: absolute; top: 2px; left: 50%; transform: translateX(-50%);
+  width: 30px; height: 3px; border-radius: 3px; background: var(--grad);
+  box-shadow: 0 0 10px rgba(255,46,136,.5);
+}
+
+/* buttons: depth + spring press + sheen on gold/gradient */
+.btn { box-shadow: var(--shadow-glow); transition: transform .12s var(--ease), filter .2s, box-shadow .2s; letter-spacing: .2px; }
+.btn:active { transform: translateY(1px) scale(.985); filter: brightness(1.08); }
+.btn.gold { box-shadow: 0 8px 26px rgba(255,180,0,.25); }
+.btn.ghost { box-shadow: none; }
+.btn.ghost:active { background: var(--panel); }
+
+/* rows + panels: hairline depth, smooth press */
+.row, .panel { box-shadow: var(--shadow-1); transition: transform .12s var(--ease), background .2s, border-color .2s; }
+.row[data-go]:active, .row[data-card]:active { transform: scale(.99); border-color: rgba(255,255,255,.16); }
+.panel { background: linear-gradient(180deg, rgba(255,255,255,.015), transparent), var(--panel); }
+
+/* cards: richer hover/press + corner sheen */
+.card-svg { box-shadow: var(--shadow-2); transition: transform .16s var(--ease), box-shadow .2s; }
+.card-wrap:active .card-svg { transform: scale(.97); }
+.card-badge { box-shadow: var(--shadow-1); }
+
+/* headings tighten */
+.h1 { letter-spacing: -.5px; }
+.h2 { letter-spacing: -.2px; }
+
+/* toast: slide up + soft glow */
+.toast { animation: toastIn .26s var(--ease) both; box-shadow: var(--shadow-2); }
+@keyframes toastIn { from { opacity: 0; transform: translate(-50%, 14px); } to { opacity: 1; transform: translate(-50%, 0); } }
+.toast.win { box-shadow: 0 12px 40px rgba(0,224,164,.18); }
+
+/* bottom sheet: backdrop fade */
+.sheet-bg { animation: fade .2s ease both; }
+@keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+
+/* ---- loading skeletons (replace bare "Loading…") ---- */
+.sk { position: relative; overflow: hidden; background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); }
+.sk::after { content: ''; position: absolute; inset: 0; transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,.06), transparent); animation: shimmer 1.25s infinite; }
+@keyframes shimmer { 100% { transform: translateX(100%); } }
+.sk-row { height: 64px; margin-bottom: 8px; }
+.sk-line { height: 14px; border-radius: 7px; margin: 10px 0; }
+.sk-card { aspect-ratio: 5/7; border-radius: 14px; }
+.sk-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+
+/* value text gets a gold glow on the big numbers */
+.val { text-shadow: 0 0 18px rgba(255,204,77,.18); }
+.cms { text-shadow: 0 0 18px rgba(122,31,255,.22); }

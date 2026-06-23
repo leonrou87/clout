@@ -641,11 +641,25 @@ async function render() {
   const [route, arg] = hash.split('/');
   document.querySelectorAll('.tab').forEach((t) => t.classList.toggle('active', t.dataset.go === route || (route === 'room' && t.dataset.go === 'chat') || (route === 'figure' && t.dataset.go === 'discover')));
   const view = $('#view');
-  view.replaceChildren(el('<p class="muted" style="padding:30px;text-align:center">Loading…</p>'));
-  try { view.replaceChildren(await (routes[route] || routes.index)(arg)); }
-  catch (e) { view.replaceChildren(el(`<p class="empty">Couldn't load: ${e.message}</p>`)); }
+  view.replaceChildren(skeleton(route));
+  try {
+    const node = await (routes[route] || routes.index)(arg);
+    node.classList.add('view-in');
+    view.replaceChildren(node);
+  } catch (e) { view.replaceChildren(el(`<p class="empty">Couldn't load: ${e.message}</p>`)); }
   refreshBalance();
   maybeCheckin();
+}
+
+// shimmer placeholders shown while a route loads (feels production vs a bare "Loading…")
+function skeleton(route) {
+  const grid = ['collection', 'clash', 'discover'].includes(route);
+  const card = ['figure', 'debut'].includes(route);
+  let inner = '<div class="sk sk-line" style="width:55%;height:24px"></div><div class="sk sk-line" style="width:82%"></div>';
+  if (card) inner += '<div class="sk sk-card" style="max-width:230px;margin:16px auto"></div><div class="sk" style="height:130px;border-radius:16px"></div>';
+  else if (grid) inner += '<div class="sk-grid" style="margin-top:14px">' + Array.from({ length: 6 }, () => '<div class="sk sk-card"></div>').join('') + '</div>';
+  else inner += '<div style="margin-top:14px">' + Array.from({ length: 7 }, () => '<div class="sk sk-row"></div>').join('') + '</div>';
+  return el(`<div>${inner}</div>`);
 }
 
 document.addEventListener('click', (e) => {
