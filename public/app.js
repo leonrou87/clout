@@ -41,7 +41,27 @@ async function api(path, opts = {}) {
 function toast(msg, kind = '') {
   const t = el(`<div class="toast ${kind}">${msg}</div>`);
   document.body.appendChild(t);
+  if (kind === 'win') buzz(12);
   setTimeout(() => t.remove(), 3400);
+}
+// light haptic (works in the Android webview + mobile web; silent elsewhere)
+function buzz(p) { try { if (navigator.vibrate) navigator.vibrate(p); } catch {} }
+// confetti burst for rare pulls / clash wins
+function celebrate() {
+  buzz([18, 40, 22]);
+  const colors = ['#ff2e88', '#7a1fff', '#ffcc4d', '#00e0a4', '#22d3ee'];
+  const c = el('<div class="confetti"></div>');
+  for (let i = 0; i < 44; i++) {
+    const p = document.createElement('i');
+    p.style.left = Math.random() * 100 + 'vw';
+    p.style.background = colors[i % colors.length];
+    p.style.setProperty('--d', (1.0 + Math.random() * 0.9).toFixed(2) + 's');
+    p.style.animationDelay = (Math.random() * 0.25).toFixed(2) + 's';
+    p.style.transform = `translateY(0) rotate(${Math.random() * 360}deg)`;
+    c.appendChild(p);
+  }
+  document.body.appendChild(c);
+  setTimeout(() => c.remove(), 2200);
 }
 function sheet(html) {
   const bg = el(`<div class="sheet-bg"><div class="sheet">${html}</div></div>`);
@@ -362,6 +382,7 @@ routes.clash = async () => {
   return v;
 };
 function showClash(r) {
+  if (r.you_won) celebrate();
   const rows = r.rounds.map((rd) => `<div class="row"><div style="flex:1;min-width:0"><b>${rd.stat}</b>
     <div class="muted" style="font-size:12px">you ${rd.you.name} (${fmt(rd.you.val)}) vs ${rd.house.name} (${fmt(rd.house.val)})</div></div>
     <div class="ri">${rd.win ? '✅' : '❌'}</div></div>`).join('');
@@ -625,6 +646,7 @@ function revealPack(pulled, coins, refBonus) {
     <div class="fan reveal" style="height:180px">${imgs}</div>
     <button class="btn gold" id="open">Open my collection</button>`);
   $('#open', bg).onclick = () => { bg.remove(); location.hash = 'collection'; render(); refreshBalance(); };
+  celebrate();
 }
 
 /* ============================== CARD ACTION SHEET ============================== */
@@ -754,6 +776,7 @@ document.addEventListener('click', (e) => {
 async function doClaim(figureId, tier) {
   try {
     const r = await api(`/debut/${figureId}/claim`, { method: 'POST', body: JSON.stringify({ tier }) });
+    if (r.founding) celebrate();
     toast(`Claimed ${tier} #${r.serial}${r.founding ? ' — 🏅 Founding Collector!' : ''}`, 'win');
     render();
   } catch (e) {
