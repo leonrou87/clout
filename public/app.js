@@ -322,7 +322,9 @@ routes.collection = async () => {
     ${missing.length ? `<h2 class="h2">Anchors to collect 🔒</h2>
       <p class="sub" style="margin-bottom:8px">The biggest names are never given away — earn coins and buy them.</p>
       <div class="anchorstrip" id="anchors"></div>` : ''}
-    <h2 class="h2">Your cards</h2>
+    <h2 class="h2">Your cards <span class="muted" style="font-size:13px;font-weight:600">${c.cards.length}</span></h2>
+    ${c.cards.length > 1 ? `<div class="seg" id="sortseg">
+      <button data-sort="value">Value</button><button data-sort="rarity">Rarity</button><button data-sort="recent">Recent</button></div>` : ''}
     ${c.cards.length ? '<div class="cardgrid" id="grid"></div>' : '<div class="empty">No cards yet. Buy from the Cards tab, or invite a friend.</div>'}
   </div>`);
   if (missing.length) {
@@ -330,9 +332,20 @@ routes.collection = async () => {
     missing.forEach((m) => a.appendChild(el(`<div class="anchor-locked" data-go="figure/${m.figure_id}">
       <div class="lockface">🔒</div><div class="aname">${m.display_name}</div><div class="muted" style="font-size:11px">${m.cms} · buy</div></div>`)));
   }
+  const sortSeg = $('#sortseg', v);
+  if (sortSeg) sortSeg.querySelectorAll('button').forEach((b) => {
+    b.classList.toggle('active', b.dataset.sort === (state._collSort || 'value'));
+    b.onclick = () => { state._collSort = b.dataset.sort; render(); };
+  });
   if (c.cards.length) {
     const grid = $('#grid', v);
-    c.cards.forEach((card) => {
+    const tierRank = { genesis: 0, founders: 1, standard: 2, open: 3 };
+    const sort = state._collSort || 'value';
+    const cards = [...c.cards].sort((a, b) =>
+      sort === 'rarity' ? (tierRank[a.tier] - tierRank[b.tier]) || (a.serial_number - b.serial_number)
+        : sort === 'recent' ? a.held_days - b.held_days
+          : b.value - a.value);
+    cards.forEach((card) => {
       const badges = [card.crown ? '👑' : '', card.locked ? '🔒' : '', card.founding ? '🏅' : ''].filter(Boolean).join(' ');
       const m = card.momentum_since;
       const mo = m > 0 ? `<span style="color:var(--good)">▲${m}</span>` : (m < 0 ? `<span style="color:var(--bad)">▼${Math.abs(m)}</span>` : '');
