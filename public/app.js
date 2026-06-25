@@ -81,6 +81,9 @@ function miniSpark(values, w = 84, h = 26, forceColor) {
   return `<svg class="mini-spark" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}"><polyline points="${pts.join(' ')}" fill="none" stroke="${forceColor || (up ? '#00e0a4' : '#ff5470')}" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
 }
 
+const dayDelta = (spark) => (spark && spark.length > 1) ? spark[spark.length - 1] - spark[spark.length - 2] : 0;
+const deltaTag = (d) => d ? `<span style="color:${d > 0 ? 'var(--good)' : 'var(--bad)'};font-size:12px;font-weight:700">${d > 0 ? '▲' : '▼'}${Math.abs(d)}</span>` : '';
+
 async function refreshBalance() {
   if (!state.user) return;
   try { const me = await api('/me'); $('#balanceChip').textContent = `◈ ${fmt(me.balance)}`; } catch {}
@@ -218,7 +221,7 @@ routes.index = async () => {
       <span class="rank">${f.rank}</span>
       <div><div style="font-weight:700">${f.display_name}</div>
         <div class="muted" style="font-size:12px"><span class="cat-dot" style="background:${catColor(f.category)}"></span> ${catLabel(f.category)}</div></div>
-      <div class="ri">${miniSpark(f.sparkline)}<div class="cms">${f.cms}</div></div>
+      <div class="ri">${miniSpark(f.sparkline)}<div class="cms">${f.cms} ${deltaTag(dayDelta(f.sparkline))}</div></div>
     </div>`)));
   return v;
 };
@@ -271,7 +274,7 @@ routes.figure = async (id) => {
     <p class="sub"><span class="cat-dot" style="background:${catColor(f.category)}"></span> ${catLabel(f.category)} · Rank #${f.rank}</p>
     <div class="card-wrap" style="max-width:230px;margin:0 auto 14px"><img class="card-svg" src="${ORIGIN}/api/render/preview/${f.figure_id}/founders.svg"/></div>
     <div class="panel">
-      <div class="kv"><span class="muted">Cultural Momentum</span><span class="cms">${f.cms} <span class="muted">/1000</span></span></div>
+      <div class="kv"><span class="muted">Cultural Momentum</span><span class="cms">${f.cms} <span class="muted">/1000</span> ${deltaTag(dayDelta(f.sparkline))}</span></div>
       <div class="kv"><span class="muted">7-day movement</span>${miniSpark(f.sparkline, 130, 28)}</div>
       <div style="margin:12px 0 4px"><span class="pill">Driving headlines</span></div>
       ${f.driving.map((h) => `<a class="headline" href="${h.url}" target="_blank" rel="noopener">${h.title}<span class="src"> — ${h.source} · ${new Date(h.published_at).toLocaleDateString()}</span></a>`).join('') || '<p class="muted">No recent public coverage.</p>'}
