@@ -314,3 +314,6 @@ main {
 .confetti { position: fixed; inset: 0; pointer-events: none; z-index: 70; overflow: hidden; }
 .confetti i { position: absolute; top: -16px; width: 9px; height: 14px; border-radius: 2px; opacity: .95; will-change: transform; animation: confFall var(--d, 1.4s) cubic-bezier(.3,.7,.4,1) forwards; }
 @keyframes confFall { to { transform: translateY(108vh) rotate(900deg); opacity: 0; } }
+
+/* card thumbnail in ranker rows */
+.rowthumb { width: 38px; aspect-ratio: 5/7; border-radius: 6px; flex-shrink: 0; object-fit: cover; box-shadow: var(--shadow-1); background: var(--panel2); }

@@ -244,6 +244,7 @@ routes.discover = async () => {
     cards.forEach((c, i) => list.appendChild(el(`
       <div class="row" data-go="figure/${c.figure_id}">
         <span class="rank">${i + 1}</span>
+        <img class="rowthumb" src="${ORIGIN}/api/render/preview/${c.figure_id}/founders.svg" loading="lazy"/>
         <div><div style="font-weight:700">${c.display_name}</div>
           <div class="muted" style="font-size:12px"><span class="cat-dot" style="background:${catColor(c.category)}"></span> ${catLabel(c.category)} · ${c.buys} buys</div></div>
         <div class="ri"><div class="val">🔥 ${c.hype}</div><div class="muted" style="font-size:11px">cms ${c.cms}</div></div>
@@ -253,6 +254,7 @@ routes.discover = async () => {
     cards.forEach((c, i) => list.appendChild(el(`
       <div class="row" data-go="figure/${c.figure_id}">
         <span class="rank">${i + 1}</span>
+        <img class="rowthumb" src="${ORIGIN}/api/render/preview/${c.figure_id}/${c.tier}.svg" loading="lazy"/>
         <div><div style="font-weight:700">${c.display_name} <span class="muted" style="font-weight:600">${c.rarity} ${c.tier}</span></div>
           <div class="muted" style="font-size:12px">${c.holders} holders · ${c.minted}/${fmt(c.print_run)} minted</div></div>
         <div class="ri"><div class="val">◈ ${fmt(c.value)}</div><div class="muted" style="font-size:11px">${by === 'value' ? 'guide' : 'pop ' + c.popularity}</div></div>
