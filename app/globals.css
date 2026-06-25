@@ -317,3 +317,7 @@ main {
 
 /* card thumbnail in ranker rows */
 .rowthumb { width: 38px; aspect-ratio: 5/7; border-radius: 6px; flex-shrink: 0; object-fit: cover; box-shadow: var(--shadow-1); background: var(--panel2); }
+
+/* trade picker: selected requested card */
+.card-wrap.sel { outline: 3px solid var(--gold); border-radius: 16px; }
+.card-wrap.sel::after { content: '✓'; position: absolute; top: 8px; right: 8px; background: var(--gold); color: #1a1205; font-weight: 800; border-radius: 999px; width: 24px; height: 24px; display: grid; place-items: center; }

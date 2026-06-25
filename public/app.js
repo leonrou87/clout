@@ -697,25 +697,57 @@ function cardActions(card) {
     catch (e) { toast(e.message, 'err'); }
   };
   $('#prov', bg).onclick = () => { bg.remove(); showProvenance(card); };
-  $('#gift', bg).onclick = async () => {
-    const to = prompt(`Gift ${card.name} #${card.serial} to which collector? (handle)\nA gift is free — CLOUT has no payment concept.`); if (!to) return;
-    try { await api('/transfers', { method: 'POST', body: JSON.stringify({ to_handle: to.trim().toLowerCase(), card_ids_out: [card.id] }) }); bg.remove(); toast(`Gift sent to @${to.trim()} — they accept it in their profile.`, 'win'); }
-    catch (e) { toast(e.message, 'err'); }
-  };
-  $('#trade', bg).onclick = () => { bg.remove(); proposeTrade(card); };
+  $('#gift', bg).onclick = () => { bg.remove(); tradeSheet(card); };
+  $('#trade', bg).onclick = () => { bg.remove(); tradeSheet(card); };
   $('#share', bg).onclick = () => shareFigure(card.fig, `My ${card.name} #${card.serial}`);
   $('#room', bg).onclick = () => { bg.remove(); location.hash = 'room/' + card.fig; render(); };
 }
 
-// card-for-card barter: send my card, request one of theirs (by handle). No money leg exists.
-async function proposeTrade(card) {
-  const to = prompt(`Card-for-card trade.\nSend YOUR ${card.name} #${card.serial} to which collector? (handle)`); if (!to) return;
-  const want = prompt(`Optional: paste a card link/id of THEIRS you want in return (leave blank for a one-way gift).`) || '';
-  const inId = want.trim().split('/').pop().replace('.svg', '');
-  try {
-    await api('/transfers', { method: 'POST', body: JSON.stringify({ to_handle: to.trim().toLowerCase(), card_ids_out: [card.id], card_ids_in: inId ? [inId] : [] }) });
-    toast(`Trade proposed to @${to.trim()}. They confirm from their profile.`, 'win');
-  } catch (e) { toast(e.message, 'err'); }
+// Card-for-card barter: send your card to a collector, optionally request one of theirs.
+// No money leg exists anywhere.
+function tradeSheet(card) {
+  const bg = sheet(`<h3>Trade ${escapeHtml(card.name)} #${card.serial}</h3>
+    <p class="sub">Send your card to a collector — and optionally request one of theirs for a fair swap. CLOUT never attaches money to a trade.</p>
+    <div class="muted" style="font-size:12px;margin-bottom:4px">You send</div>
+    <div class="row" style="margin-bottom:12px"><img class="rowthumb" src="${ORIGIN}/api/render/card/${card.id}.svg"/>
+      <div><b>${escapeHtml(card.name)} #${card.serial}</b><div class="muted" style="font-size:12px">${card.rarity || ''} ${card.tier}</div></div></div>
+    <input class="input" id="to" placeholder="Recipient handle" autocapitalize="none" autocomplete="off"/>
+    <button class="btn ghost sm" id="load" style="width:100%">See their cards →</button>
+    <div id="theirs"></div>
+    <div class="muted" style="font-size:12px;margin-top:8px" id="want">Requesting: nothing (one-way gift)</div>
+    <button class="btn gold" id="send" style="margin-top:10px">Propose trade</button>`);
+  let inId = null;
+  $('#load', bg).onclick = async () => {
+    const h = $('#to', bg).value.trim().toLowerCase(); if (!h) return toast('Enter a handle first', 'err');
+    try {
+      const cards = await api('/users/' + encodeURIComponent(h) + '/cards');
+      const t = $('#theirs', bg);
+      if (!cards.length) { t.innerHTML = '<div class="muted" style="font-size:12px;margin-top:8px">No cards, or no collector with that handle.</div>'; return; }
+      t.innerHTML = '<div class="muted" style="font-size:12px;margin:10px 0 4px">Tap one to request it (optional)</div>';
+      const grid = el('<div class="cardgrid"></div>');
+      cards.forEach((k) => {
+        const w = el(`<div class="card-wrap" data-pick="${k.card_id}"><img class="card-svg" src="${ORIGIN}/api/render/card/${k.card_id}.svg" loading="lazy"/><div class="card-meta"><span>${k.rarity} #${k.serial}</span></div></div>`);
+        w.onclick = () => {
+          const was = inId === k.card_id;
+          grid.querySelectorAll('.card-wrap').forEach((e) => e.classList.remove('sel'));
+          inId = was ? null : k.card_id; if (!was) w.classList.add('sel');
+          $('#want', bg).textContent = 'Requesting: ' + (inId ? `${k.display_name} #${k.serial}` : 'nothing (one-way gift)');
+        };
+        grid.appendChild(w);
+      });
+      t.appendChild(grid);
+    } catch (e) { toast(e.message, 'err'); }
+  };
+  $('#send', bg).onclick = async () => {
+    const h = $('#to', bg).value.trim().toLowerCase(); if (!h) return toast('Enter a recipient handle', 'err');
+    try {
+      await api('/transfers', { method: 'POST', body: JSON.stringify({ to_handle: h, card_ids_out: [card.id], card_ids_in: inId ? [inId] : [] }) });
+      bg.remove(); toast(`Trade proposed to @${h} — they confirm in their profile.`, 'win'); buzz(10);
+    } catch (e) {
+      const m = { CARD_LOCKED: 'This card is vaulted — unlock it first.', NOT_OWNER_OF_IN_CARD: 'They no longer own that card.', RECIPIENT_NOT_FOUND: 'No collector with that handle.', NOT_OWNER_OF_OUT_CARD: "You don't own this card." };
+      toast(m[e.message] || e.message, 'err');
+    }
+  };
 }
 
 async function shareFigure(figureId, text) {
